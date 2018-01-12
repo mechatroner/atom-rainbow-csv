@@ -6,25 +6,25 @@
 'patterns': [
  	{
 		'match': '(?:(?:"(?:[^"]*"")*[^"]*",?)|(?:[^,]*,?))((?:"(?:[^"]*"")*[^"]*",?)|(?:[^,]*,?))?((?:"(?:[^"]*"")*[^"]*",?)|(?:[^,]*,?))?((?:"(?:[^"]*"")*[^"]*",?)|(?:[^,]*,?))?((?:"(?:[^"]*"")*[^"]*",?)|(?:[^,]*,?))?((?:"(?:[^"]*"")*[^"]*",?)|(?:[^,]*,?))?((?:"(?:[^"]*"")*[^"]*",?)|(?:[^,]*,?))?((?:"(?:[^"]*"")*[^"]*",?)|(?:[^,]*,?))?((?:"(?:[^"]*"")*[^"]*",?)|(?:[^,]*,?))?((?:"(?:[^"]*"")*[^"]*",?)|(?:[^,]*,?))?'
-		'name': 'rainbow.first'
+		'name': 'rainbow1'
 		'captures':
 			'1':
-				'name': 'keyword'
+				'name': 'keyword.rainbow2'
 			'2':
-				'name': 'entity.name.function'
+				'name': 'entity.name.rainbow3'
 			'3':
-				'name': 'comment'
+				'name': 'comment.rainbow4'
 			'4': 
-				'name': 'string'
+				'name': 'string.rainbow5'
 			'5': 
-				'name': 'variable.parameter'
+				'name': 'entity.name.tag.rainbow6'
 			'6': 
-				'name': 'constant.numeric'
+				'name': 'storage.type.rainbow7'
 			'7': 
-				'name': 'entity.name.type'
+				'name': 'support.rainbow8'
 			'8': 
-				'name': 'markup.bold'
+				'name': 'constant.language.rainbow9'
 			'9':
-				'name': 'invalid'
+				'name': 'variable.language.rainbow10'
 	}
 ]
