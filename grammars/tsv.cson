@@ -1,0 +1,30 @@
+'scopeName': 'text.tsv'
+'name': 'tsv'
+'fileTypes': [
+	'tsv'
+]
+'patterns': [
+ 	{
+		'match': '(?:[^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)'
+		'name': 'rainbow1'
+		'captures':
+			'1':
+				'name': 'keyword.rainbow2'
+			'2':
+				'name': 'entity.name.rainbow3'
+			'3':
+				'name': 'comment.rainbow4'
+			'4': 
+				'name': 'string.rainbow5'
+			'5': 
+				'name': 'entity.name.tag.rainbow6'
+			'6': 
+				'name': 'storage.type.rainbow7'
+			'7': 
+				'name': 'support.rainbow8'
+			'8': 
+				'name': 'constant.language.rainbow9'
+			'9':
+				'name': 'variable.language.rainbow10'
+	}
+]
