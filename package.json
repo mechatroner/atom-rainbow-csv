@@ -7,9 +7,6 @@
         "tsv",
         "highlight"
   ],
-  "activationCommands": {
-    "atom-workspace": "rainbow-csv:toggle"
-  },
   "repository": "https://github.com/mechatroner/atom-rainbow-csv",
   "license": "MIT",
   "engines": {
