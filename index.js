@@ -25,10 +25,25 @@ function prepare_colors() {
 }
 
 
+function get_grammar(editor) {
+    var grammar = editor.getGrammar();
+    if (!grammar || grammar.name == 'Null Grammar')
+        return null;
+    return grammar.name;
+}
+
+
 function handle_new_editor(editor) {
     // "editor" is view on some file
     var file_path = editor.getPath();
-    console.log('Rainbow Opening ' + file_path);
+    //console.log('Rainbow Opening ' + file_path);
+    var autodetection_enabled = atom.config.get('rainbow-csv.autodetection');
+    console.log("autodetection setting enabled: " + autodetection_enabled);
+    var grammar = get_grammar(editor);
+    if (grammar === null) {
+        // TODO run autodetection and set csv/tsv using "setGrammar()" if successfull, otherwise - exit.
+        return;
+    }
 }
 
 function activate(state) {
@@ -38,4 +53,7 @@ function activate(state) {
     var disposable_subscription = atom.workspace.observeTextEditors(handle_new_editor);
 }
 
+rainbow_config = {'autodetection': {type: 'boolean', default: true, title: "Table files autodetection", description: 'Enable content-based autodetection for csv and tsv files that do not have "*.csv" or "*.tsv" extensions'}};
+
 exports.activate = activate;
+exports.config = rainbow_config;
