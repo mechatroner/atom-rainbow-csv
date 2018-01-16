@@ -162,7 +162,20 @@ function handle_new_editor(editor) {
             return;
         editor.setGrammar(grammar);
     }
+
+    cursor_callback = function(event) {
+        if (editor.hasMultipleCursors())
+            return;
+        var position = event.newBufferPosition;
+        var line_num = position.row;
+        var column = position.column;
+        // FIXME show in "status-bar" instead, add column info
+        console.log('cursor moved in ' + file_path + ' to ' + line_num + ', ' + column);
+    }
+
+    var disposable_subscription = editor.onDidChangeCursorPosition(cursor_callback);
 }
+
 
 function activate(state) {
     prepare_colors();
