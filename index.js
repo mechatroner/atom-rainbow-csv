@@ -25,29 +25,146 @@ function prepare_colors() {
 }
 
 
+function split_quoted_str(src, dlm, preserve_quotes=false) {
+    if (src.indexOf('"') == -1)
+        return [src.split(dlm), false];
+    var result = [];
+    var cidx = 0;
+    while (cidx < src.length) {
+        if (src.charAt(cidx) === '"') {
+            var uidx = cidx + 1;
+            while (true) {
+                uidx = src.indexOf('"', uidx);
+                if (uidx == -1) {
+                    result.push(src.substring(cidx));
+                    return [result, true];
+                } else if (uidx + 1 == src.length || src.charAt(uidx + 1) == dlm) {
+                    if (preserve_quotes) {
+                        result.push(src.substring(cidx, uidx + 1));
+                    } else {
+                        result.push(src.substring(cidx + 1, uidx).replace(/""/g, '"'));
+                    }
+                    cidx = uidx + 2;
+                    break;
+                } else if (src.charAt(uidx + 1) == '"') {
+                    uidx += 2; 
+                    continue;
+                } else {
+                    result.push(src.substring(cidx));
+                    return [result, true];
+                }
+            }
+        } else {
+            var uidx = src.indexOf(dlm, cidx);
+            if (uidx == -1)
+                uidx = src.length;
+            var field = src.substring(cidx, uidx);
+            if (field.indexOf('"') != -1) {
+                result.push(src.substring(cidx));
+                return [result, true];
+            }
+            result.push(field);
+            cidx = uidx + 1;
+        }
+    }
+    if (src.charAt(src.length - 1) == dlm)
+        result.push('');
+    return [result, false];
+}
+
+
+function smart_split(src, dlm, policy) {
+    if (policy === 'simple')
+        return [src.split(dlm), false];
+    return split_quoted_str(src, dlm);
+}
+
+
 function get_grammar(editor) {
     var grammar = editor.getGrammar();
-    if (!grammar || grammar.name == 'Null Grammar')
+    // atom assigns "text.plain" if file has .txt extension, otherwise, if extension is unknown it is "text.plain.null-grammar"
+    if (!grammar || grammar.scopeName == 'text.plain' || grammar.scopeName == 'text.plain.null-grammar')
         return null;
     return grammar.name;
 }
 
 
+function is_delimited_table(sampled_lines, delim, policy) {
+    if (sampled_lines.length < 2)
+        return false;
+    var split_result = smart_split(sampled_lines[0], delim, policy);
+    if (split_result[1])
+        return false;
+    var num_fields = split_result[0].length;
+    if (num_fields < 2)
+        return false;
+    for (var i = 1; i < sampled_lines.length; i++) {
+        var split_result = smart_split(sampled_lines[i], delim, policy);
+        if (split_result[1])
+            return false;
+        if (split_result[0].length != num_fields)
+            return false;
+    }
+    return true;
+}
+
+
+function sample_lines(editor) {
+    var sampled_lines = [];
+    var num_lines = editor.getLineCount();
+    var head_count = 10;
+    if (num_lines <= head_count * 2) {
+        for (var i = 0; i < num_lines; i++) {
+            sampled_lines.push(editor.lineTextForBufferRow(i));
+        }
+    } else {
+        for (var i = 0; i < head_count; i++) {
+            sampled_lines.push(editor.lineTextForBufferRow(i));
+        }
+        for (var i = num_lines - head_count; i < num_lines; i++) {
+            sampled_lines.push(editor.lineTextForBufferRow(i));
+        }
+    }
+    while (sampled_lines.length) {
+        var last = sampled_lines[sampled_lines.length - 1];
+        if (last != "")
+            break;
+        sampled_lines.pop();
+    }
+    return sampled_lines;
+}
+
+
+function autodetect_delim(editor) {
+    var sampled_lines = sample_lines(editor);
+    var candidates = [];
+    candidates.push({scope_name: 'text.csv', delim: ',', policy: 'quoted'});
+    candidates.push({scope_name: 'text.tsv', delim: '\t', policy: 'simple'});
+    for (var i = 0; i < candidates.length; i++) {
+        if (is_delimited_table(sampled_lines, candidates[i].delim, candidates[i].policy))
+            return candidates[i].scope_name;
+    }
+    return null;
+}
+
+
 function handle_new_editor(editor) {
-    // "editor" is view on some file
+    // "editor" is essentially a file view
     var file_path = editor.getPath();
-    //console.log('Rainbow Opening ' + file_path);
     var autodetection_enabled = atom.config.get('rainbow-csv.autodetection');
-    console.log("autodetection setting enabled: " + autodetection_enabled);
     var grammar = get_grammar(editor);
-    if (grammar === null) {
-        // TODO run autodetection and set csv/tsv using "setGrammar()" if successfull, otherwise - exit.
-        return;
+    if (grammar === null && autodetection_enabled) {
+        var detected_scope_name = autodetect_delim(editor);
+        if (detected_scope_name === null)
+            return;
+        grammar = atom.grammars.grammarForScopeName(detected_scope_name);
+        if (!grammar)
+            return;
+        editor.setGrammar(grammar);
     }
 }
 
 function activate(state) {
-    console.log('Activating "rainbow_csv"');
     prepare_colors();
 
     var disposable_subscription = atom.workspace.observeTextEditors(handle_new_editor);
