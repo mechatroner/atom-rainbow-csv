@@ -1,5 +1,5 @@
 var status_bar_tile = null;
-var ui_column_display = null;
+//var ui_column_display = null;
 
 
 function prepare_colors() {
@@ -176,6 +176,10 @@ function handle_new_editor(editor) {
         //
         // Can I just create a new dom element (span) and then pass it to the status bar method?
         // Or do I need to use view-registry https://atom.io/docs/api/v1.23.3/ViewRegistry to provide updated info for the status tile?
+        var ui_column_display = status_bar_tile.getItem();
+        if (ui_column_display) {
+            ui_column_display.textContent = line_num + ', ' + column;
+        }
         console.log('cursor moved in ' + file_path + ' to ' + line_num + ', ' + column);
     }
 
@@ -198,12 +202,12 @@ function deactivate() {
 
 
 function consumeStatusBar(status_bar) {
-    console.log('consuming status bar');
-    ui_column_display = document.createElement('div');
+    var ui_column_display = document.createElement('div');
     ui_column_display.textContent = 'Hello status-bar!';
     ui_column_display.setAttribute('class', 'inline-block');
+    ui_column_display.setAttribute('style', 'color:#E6194B');
     status_bar_tile = status_bar.addLeftTile({item: ui_column_display, priority: 10});
-    console.log('done consuming status bar');
+    //FIXME hide the status bar tile for non-csv buffers
 }
 
 
