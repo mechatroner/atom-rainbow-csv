@@ -1,5 +1,8 @@
-function prepare_colors() {
+var status_bar_tile = null;
+var ui_column_display = null;
 
+
+function prepare_colors() {
     // colors were taken from here: https://sashat.me/2017/01/11/list-of-20-simple-distinct-colors/
     var color_entries = []
     color_entries.push(['rainbow1', '#E6194B'])
@@ -170,6 +173,9 @@ function handle_new_editor(editor) {
         var line_num = position.row;
         var column = position.column;
         // FIXME show in "status-bar" instead, add column info
+        //
+        // Can I just create a new dom element (span) and then pass it to the status bar method?
+        // Or do I need to use view-registry https://atom.io/docs/api/v1.23.3/ViewRegistry to provide updated info for the status tile?
         console.log('cursor moved in ' + file_path + ' to ' + line_num + ', ' + column);
     }
 
@@ -183,7 +189,28 @@ function activate(state) {
     var disposable_subscription = atom.workspace.observeTextEditors(handle_new_editor);
 }
 
+
+function deactivate() {
+    if (status_bar_tile)
+        status_bar_tile.destroy();
+    status_bar_tile = null;
+}
+
+
+function consumeStatusBar(status_bar) {
+    console.log('consuming status bar');
+    ui_column_display = document.createElement('div');
+    ui_column_display.textContent = 'Hello status-bar!';
+    ui_column_display.setAttribute('class', 'inline-block');
+    status_bar_tile = status_bar.addLeftTile({item: ui_column_display, priority: 10});
+    console.log('done consuming status bar');
+}
+
+
 rainbow_config = {'autodetection': {type: 'boolean', default: true, title: "Table files autodetection", description: 'Enable content-based autodetection for csv and tsv files that do not have "*.csv" or "*.tsv" extensions'}};
 
-exports.activate = activate;
+
 exports.config = rainbow_config;
+exports.activate = activate;
+exports.deactivate = deactivate;
+exports.consumeStatusBar = consumeStatusBar;
