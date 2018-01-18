@@ -83,13 +83,21 @@ function smart_split(src, dlm, policy) {
 }
 
 
-function get_grammar(editor) {
-    var grammar = editor.getGrammar();
-    // atom assigns "text.plain" if file has .txt extension, otherwise, if extension is unknown it is "text.plain.null-grammar"
-    if (!grammar || grammar.scopeName == 'text.plain' || grammar.scopeName == 'text.plain.null-grammar')
-        return null;
-    return grammar.name;
+function is_rainbow_grammar(grammar) {
+    var rainbow_scopes = ['text.csv', 'text.tsv'];
+    if (!grammar || rainbow_scopes.indexOf(grammar.scopeName) == -1)
+        return false;
+    return true;
 }
+
+
+//function get_grammar(editor) {
+//    var grammar = editor.getGrammar();
+//    // atom assigns "text.plain" if file has .txt extension, otherwise, if extension is unknown it is "text.plain.null-grammar"
+//    if (!grammar || grammar.scopeName == 'text.plain' || grammar.scopeName == 'text.plain.null-grammar')
+//        return null;
+//    return grammar;
+//}
 
 
 function is_delimited_table(sampled_lines, delim, policy) {
@@ -151,12 +159,37 @@ function autodetect_delim(editor) {
 }
 
 
+function hide_statusbar_tile() {
+    //FIXME
+}
+
+function show_statusbar_tile() {
+    //FIXME
+}
+
+
+function process_editor_switch(editor) {
+    if (!editor) {
+        hide_statusbar_tile();
+        return;
+    }
+    if (is_rainbow_grammar(editor.getGrammar())) {
+        show_statusbar_tile();
+    } else {
+        hide_statusbar_tile();
+    }
+}
+
+
 function handle_new_editor(editor) {
     // "editor" is essentially a file view
     var file_path = editor.getPath();
     var autodetection_enabled = atom.config.get('rainbow-csv.autodetection');
-    var grammar = get_grammar(editor);
-    if (grammar === null && autodetection_enabled) {
+    var grammar = editor.getGrammar();
+    if (!grammar)
+        return; // should never happen
+    var plain_text_grammars = ['text.plain', 'text.plain.null-grammar'];
+    if (plain_text_grammars.indexOf(grammar.scopeName) != -1 && autodetection_enabled) {
         var detected_scope_name = autodetect_delim(editor);
         if (detected_scope_name === null)
             return;
@@ -165,7 +198,13 @@ function handle_new_editor(editor) {
             return;
         editor.setGrammar(grammar);
     }
+    //console.log("file_path:" + file_path); //FOR_DEBUG
+    //console.log("grammar.name:" + grammar.name); //FOR_DEBUG
+    //console.log("grammar.scopeName:" + grammar.scopeName); //FOR_DEBUG
+    if (!is_rainbow_grammar(grammar))
+        return;
 
+    show_statusbar_tile();
     cursor_callback = function(event) {
         if (editor.hasMultipleCursors())
             return;
@@ -189,8 +228,8 @@ function handle_new_editor(editor) {
 
 function activate(state) {
     prepare_colors();
-
     var disposable_subscription = atom.workspace.observeTextEditors(handle_new_editor);
+    var disposable_subscription_2 = atom.workspace.onDidChangeActiveTextEditor(process_editor_switch);
 }
 
 
@@ -208,6 +247,7 @@ function consumeStatusBar(status_bar) {
     ui_column_display.setAttribute('style', 'color:#E6194B');
     status_bar_tile = status_bar.addLeftTile({item: ui_column_display, priority: 10});
     //FIXME hide the status bar tile for non-csv buffers
+    //use one of these functions to detect editor change: https://atom.io/docs/api/v1.23.3/Workspace#instance-onDidChangeActiveTextEditor
 }
 
 
