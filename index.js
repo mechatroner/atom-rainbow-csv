@@ -1,5 +1,4 @@
 var status_bar_tile = null;
-//var ui_column_display = null;
 
 
 function prepare_colors() {
@@ -91,15 +90,6 @@ function is_rainbow_grammar(grammar) {
 }
 
 
-//function get_grammar(editor) {
-//    var grammar = editor.getGrammar();
-//    // atom assigns "text.plain" if file has .txt extension, otherwise, if extension is unknown it is "text.plain.null-grammar"
-//    if (!grammar || grammar.scopeName == 'text.plain' || grammar.scopeName == 'text.plain.null-grammar')
-//        return null;
-//    return grammar;
-//}
-
-
 function is_delimited_table(sampled_lines, delim, policy) {
     if (sampled_lines.length < 2)
         return false;
@@ -168,9 +158,18 @@ function hide_statusbar_tile() {
     }
 }
 
-function show_statusbar_tile() {
-    // you really need this function!
-    //FIXME show current cursor position!
+function show_statusbar_tile(editor) {
+    if (editor.hasMultipleCursors())
+        return;
+    if (!status_bar_tile)
+        return;
+    var ui_column_display = status_bar_tile.getItem();
+    if (ui_column_display) {
+        var position = editor.getCursorBufferPosition();
+        var line_num = position.row;
+        var column = position.column;
+        ui_column_display.textContent = line_num + ', ' + column;
+    }
 }
 
 
@@ -180,7 +179,7 @@ function process_editor_switch(editor) {
         return;
     }
     if (is_rainbow_grammar(editor.getGrammar())) {
-        show_statusbar_tile();
+        show_statusbar_tile(editor);
     } else {
         hide_statusbar_tile();
     }
@@ -204,13 +203,11 @@ function handle_new_editor(editor) {
             return;
         editor.setGrammar(grammar);
     }
-    //console.log("file_path:" + file_path); //FOR_DEBUG
-    //console.log("grammar.name:" + grammar.name); //FOR_DEBUG
-    //console.log("grammar.scopeName:" + grammar.scopeName); //FOR_DEBUG
     if (!is_rainbow_grammar(grammar))
         return;
 
-    show_statusbar_tile();
+    show_statusbar_tile(editor);
+
     cursor_callback = function(event) {
         if (editor.hasMultipleCursors())
             return;
@@ -251,8 +248,6 @@ function consumeStatusBar(status_bar) {
     ui_column_display.setAttribute('class', 'inline-block');
     ui_column_display.setAttribute('style', 'color:#E6194B');
     status_bar_tile = status_bar.addLeftTile({item: ui_column_display, priority: 10});
-    //FIXME hide the status bar tile for non-csv buffers
-    //use one of these functions to detect editor change: https://atom.io/docs/api/v1.23.3/Workspace#instance-onDidChangeActiveTextEditor
 }
 
 
