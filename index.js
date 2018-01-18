@@ -160,11 +160,17 @@ function autodetect_delim(editor) {
 
 
 function hide_statusbar_tile() {
-    //FIXME
+    if (!status_bar_tile)
+        return;
+    var ui_column_display = status_bar_tile.getItem();
+    if (ui_column_display) {
+        ui_column_display.textContent = '';
+    }
 }
 
 function show_statusbar_tile() {
-    //FIXME
+    // you really need this function!
+    //FIXME show current cursor position!
 }
 
 
@@ -208,15 +214,14 @@ function handle_new_editor(editor) {
     cursor_callback = function(event) {
         if (editor.hasMultipleCursors())
             return;
-        var position = event.newBufferPosition;
-        var line_num = position.row;
-        var column = position.column;
         // FIXME show in "status-bar" instead, add column info
-        //
-        // Can I just create a new dom element (span) and then pass it to the status bar method?
-        // Or do I need to use view-registry https://atom.io/docs/api/v1.23.3/ViewRegistry to provide updated info for the status tile?
+        if (!status_bar_tile)
+            return;
         var ui_column_display = status_bar_tile.getItem();
         if (ui_column_display) {
+            var position = event.newBufferPosition;
+            var line_num = position.row;
+            var column = position.column;
             ui_column_display.textContent = line_num + ', ' + column;
         }
         console.log('cursor moved in ' + file_path + ' to ' + line_num + ', ' + column);
@@ -242,7 +247,7 @@ function deactivate() {
 
 function consumeStatusBar(status_bar) {
     var ui_column_display = document.createElement('div');
-    ui_column_display.textContent = 'Hello status-bar!';
+    ui_column_display.textContent = '';
     ui_column_display.setAttribute('class', 'inline-block');
     ui_column_display.setAttribute('style', 'color:#E6194B');
     status_bar_tile = status_bar.addLeftTile({item: ui_column_display, priority: 10});
