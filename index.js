@@ -1,4 +1,10 @@
 var status_bar_tile = null;
+var file_headers_cache = new Map();
+
+var rainbow_scopes = [
+    {scope_name: 'text.csv', delim: ',', policy: 'quoted'},
+    {scope_name: 'text.tsv', delim: '\t', policy: 'simple'}
+];
 
 
 function prepare_colors() {
@@ -75,18 +81,50 @@ function split_quoted_str(src, dlm, preserve_quotes=false) {
 }
 
 
-function smart_split(src, dlm, policy) {
+function smart_split(src, dlm, policy, preserve_quotes=false) {
     if (policy === 'simple')
         return [src.split(dlm), false];
-    return split_quoted_str(src, dlm);
+    return split_quoted_str(src, dlm, preserve_quotes);
 }
 
 
-function is_rainbow_grammar(grammar) {
-    var rainbow_scopes = ['text.csv', 'text.tsv'];
-    if (!grammar || rainbow_scopes.indexOf(grammar.scopeName) == -1)
-        return false;
-    return true;
+function get_field_by_line_position(fields, query_pos) {
+    if (!fields.length)
+        return null;
+    var col_num = 0;
+    var cpos = fields[col_num].length + 1;
+    while (query_pos > cpos && col_num + 1 < fields.length) {
+        col_num += 1;
+        cpos = cpos + fields[col_num].length + 1;
+    }
+    return col_num;
+}
+
+
+function generate_display_text(editor, position, rainbow_scope) {
+    var line_num = position.row;
+    var column = position.column;
+    var line_text = editor.lineTextForBufferRow(line_num);
+    var split_result = smart_split(line_text, rainbow_scope.delim, rainbow_scope.policy, true);
+    if (split_result[1]) {
+        return '';
+    }
+    var line_fields = split_result[0];
+    var field_num = get_field_by_line_position(line_fields, column + 1);
+    if (field_num === null)
+        return '';
+    return '' + (field_num + 1);
+}
+
+
+function get_rainbow_scope(grammar) {
+    if (!grammar)
+        return null;
+    for (var i = 0; i < rainbow_scopes.length; i++) {
+        if (rainbow_scopes[i].scope_name == grammar.scopeName)
+            return rainbow_scopes[i];
+    }
+    return null;
 }
 
 
@@ -138,12 +176,9 @@ function sample_lines(editor) {
 
 function autodetect_delim(editor) {
     var sampled_lines = sample_lines(editor);
-    var candidates = [];
-    candidates.push({scope_name: 'text.csv', delim: ',', policy: 'quoted'});
-    candidates.push({scope_name: 'text.tsv', delim: '\t', policy: 'simple'});
-    for (var i = 0; i < candidates.length; i++) {
-        if (is_delimited_table(sampled_lines, candidates[i].delim, candidates[i].policy))
-            return candidates[i].scope_name;
+    for (var i = 0; i < rainbow_scopes.length; i++) {
+        if (is_delimited_table(sampled_lines, rainbow_scopes[i].delim, rainbow_scopes[i].policy))
+            return rainbow_scopes[i].scope_name;
     }
     return null;
 }
@@ -158,17 +193,30 @@ function hide_statusbar_tile() {
     }
 }
 
-function show_statusbar_tile(editor) {
+
+function guess_document_header(editor) {
+    var sampled_lines = sample_lines(editor)
+    if (sampled_lines.length <= 10)
+        return null;
+    var header_line = sampled_lines[0];
+    sampled_lines.splice(0, 1);
+    //FIXME finish the function
+}
+
+
+function show_statusbar_tile(editor, rainbow_scope) {
     if (editor.hasMultipleCursors())
         return;
     if (!status_bar_tile)
         return;
+    // FIXME force cache recalculation for this file
     var ui_column_display = status_bar_tile.getItem();
     if (ui_column_display) {
         var position = editor.getCursorBufferPosition();
-        var line_num = position.row;
-        var column = position.column;
-        ui_column_display.textContent = line_num + ', ' + column;
+        //var line_num = position.row;
+        //var column = position.column;
+        //ui_column_display.textContent = line_num + ', ' + column;
+        ui_column_display.textContent = generate_display_text(editor, position, rainbow_scope);
     }
 }
 
@@ -178,8 +226,9 @@ function process_editor_switch(editor) {
         hide_statusbar_tile();
         return;
     }
-    if (is_rainbow_grammar(editor.getGrammar())) {
-        show_statusbar_tile(editor);
+    var rainbow_scope = get_rainbow_scope(editor.getGrammar());
+    if (rainbow_scope) {
+        show_statusbar_tile(editor, rainbow_scope);
     } else {
         hide_statusbar_tile();
     }
@@ -203,25 +252,33 @@ function handle_new_editor(editor) {
             return;
         editor.setGrammar(grammar);
     }
-    if (!is_rainbow_grammar(grammar))
+    var rainbow_scope = get_rainbow_scope(grammar);
+    if (!rainbow_scope)
         return;
 
-    show_statusbar_tile(editor);
+    show_statusbar_tile(editor, rainbow_scope);
 
     cursor_callback = function(event) {
         if (editor.hasMultipleCursors())
             return;
-        // FIXME show in "status-bar" instead, add column info
         if (!status_bar_tile)
             return;
         var ui_column_display = status_bar_tile.getItem();
         if (ui_column_display) {
             var position = event.newBufferPosition;
-            var line_num = position.row;
-            var column = position.column;
-            ui_column_display.textContent = line_num + ', ' + column;
+            //var line_num = position.row;
+            //var column = position.column;
+            //var line_text = editor.lineTextForBufferRow(line_num);
+            //var split_result = smart_split(line_text, rainbow_scope.delim, rainbow_scope.policy);
+            //if (split_result[1]) {
+            //    hide_statusbar_tile();
+            //    return;
+            //}
+            //var line_fields = split_result[0];
+            //ui_column_display.textContent = line_num + ', ' + column;
+            ui_column_display.textContent = generate_display_text(editor, position, rainbow_scope);
         }
-        console.log('cursor moved in ' + file_path + ' to ' + line_num + ', ' + column);
+        console.log('cursor moved in ' + file_path + ' to ' + position.row + ', ' + position.column);
     }
 
     var disposable_subscription = editor.onDidChangeCursorPosition(cursor_callback);
