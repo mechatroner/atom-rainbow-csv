@@ -7,20 +7,21 @@ var rainbow_scopes = [
 ];
 
 
-function prepare_colors() {
-    // colors were taken from here: https://sashat.me/2017/01/11/list-of-20-simple-distinct-colors/
-    var color_entries = []
-    color_entries.push(['rainbow1', '#E6194B'])
-    color_entries.push(['rainbow2', '#3CB44B'])
-    color_entries.push(['rainbow3', '#FFE119'])
-    color_entries.push(['rainbow4', '#0082C8'])
-    color_entries.push(['rainbow5', '#FABEBE'])
-    color_entries.push(['rainbow6', '#46F0F0'])
-    color_entries.push(['rainbow7', '#F032E6'])
-    color_entries.push(['rainbow8', '#008080'])
-    color_entries.push(['rainbow9', '#F58231'])
-    color_entries.push(['rainbow10', '#FFFFFF'])
+// colors were taken from here: https://sashat.me/2017/01/11/list-of-20-simple-distinct-colors/
+var color_entries = [
+    ['rainbow1', '#E6194B'],
+    ['rainbow2', '#3CB44B'],
+    ['rainbow3', '#FFE119'],
+    ['rainbow4', '#0082C8'],
+    ['rainbow5', '#FABEBE'],
+    ['rainbow6', '#46F0F0'],
+    ['rainbow7', '#F032E6'],
+    ['rainbow8', '#008080'],
+    ['rainbow9', '#F58231'],
+    ['rainbow10', '#FFFFFF']
+];
 
+function prepare_colors() {
     var css_code = '';
     for (var i = 0; i < color_entries.length; i++) {
         css_code += '.syntax--' + color_entries[i][0] + ' { color: ' + color_entries[i][1] + '; }';
@@ -101,19 +102,20 @@ function get_field_by_line_position(fields, query_pos) {
 }
 
 
-function generate_display_text(editor, position, rainbow_scope) {
+function display_position_info(editor, position, rainbow_scope, ui_column_display) {
     var line_num = position.row;
     var column = position.column;
     var line_text = editor.lineTextForBufferRow(line_num);
     var split_result = smart_split(line_text, rainbow_scope.delim, rainbow_scope.policy, true);
     if (split_result[1]) {
-        return '';
+        return; 
     }
     var line_fields = split_result[0];
     var field_num = get_field_by_line_position(line_fields, column + 1);
     if (field_num === null)
-        return '';
-    return '' + (field_num + 1);
+        return;
+    ui_column_display.setAttribute('style', 'color:' + color_entries[field_num % color_entries.length][1]);
+    ui_column_display.textContent = 'col# ' + (field_num + 1);
 }
 
 
@@ -213,10 +215,7 @@ function show_statusbar_tile(editor, rainbow_scope) {
     var ui_column_display = status_bar_tile.getItem();
     if (ui_column_display) {
         var position = editor.getCursorBufferPosition();
-        //var line_num = position.row;
-        //var column = position.column;
-        //ui_column_display.textContent = line_num + ', ' + column;
-        ui_column_display.textContent = generate_display_text(editor, position, rainbow_scope);
+        display_position_info(editor, position, rainbow_scope, ui_column_display);
     }
 }
 
@@ -266,17 +265,7 @@ function handle_new_editor(editor) {
         var ui_column_display = status_bar_tile.getItem();
         if (ui_column_display) {
             var position = event.newBufferPosition;
-            //var line_num = position.row;
-            //var column = position.column;
-            //var line_text = editor.lineTextForBufferRow(line_num);
-            //var split_result = smart_split(line_text, rainbow_scope.delim, rainbow_scope.policy);
-            //if (split_result[1]) {
-            //    hide_statusbar_tile();
-            //    return;
-            //}
-            //var line_fields = split_result[0];
-            //ui_column_display.textContent = line_num + ', ' + column;
-            ui_column_display.textContent = generate_display_text(editor, position, rainbow_scope);
+            display_position_info(editor, position, rainbow_scope, ui_column_display);
         }
         console.log('cursor moved in ' + file_path + ' to ' + position.row + ', ' + position.column);
     }
@@ -303,7 +292,6 @@ function consumeStatusBar(status_bar) {
     var ui_column_display = document.createElement('div');
     ui_column_display.textContent = '';
     ui_column_display.setAttribute('class', 'inline-block');
-    ui_column_display.setAttribute('style', 'color:#E6194B');
     status_bar_tile = status_bar.addLeftTile({item: ui_column_display, priority: 10});
 }
 
