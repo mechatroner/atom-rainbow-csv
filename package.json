@@ -1,11 +1,11 @@
 {
   "name": "rainbow-csv",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Highlight csv/tsv table files in different rainbow colors",
   "keywords": [
-        "csv",
-        "tsv",
-        "highlight"
+    "csv",
+    "tsv",
+    "highlight"
   ],
   "repository": "https://github.com/mechatroner/atom-rainbow-csv",
   "license": "MIT",
@@ -19,6 +19,5 @@
       }
     }
   },
-  "dependencies": {
-  }
+  "dependencies": {}
 }
