@@ -114,8 +114,15 @@ function display_position_info(editor, position, rainbow_scope, ui_column_displa
     var field_num = get_field_by_line_position(line_fields, column + 1);
     if (field_num === null)
         return;
+    ui_text = 'col# ' + (field_num + 1);
+    guessed_header = get_document_header_cached(editor, rainbow_scope);
+    if (guessed_header && line_fields.length == guessed_header.length) {
+        var column_name = guessed_header[field_num];
+        ui_text = ui_text + ', ' + column_name;
+    }
+
     ui_column_display.setAttribute('style', 'color:' + color_entries[field_num % color_entries.length][1]);
-    ui_column_display.textContent = 'col# ' + (field_num + 1);
+    ui_column_display.textContent = ui_text;
 }
 
 
@@ -196,13 +203,89 @@ function hide_statusbar_tile() {
 }
 
 
-function guess_document_header(editor) {
+function guess_if_header(potential_header, sampled_records) {
+    // single line - not header
+    if (sampled_records.length < 1)
+        return false;
+
+    // different number of columns - not header
+    var num_fields = potential_header.length;
+    for (var i = 0; i < sampled_records.length; i++) {
+        if (sampled_records[i].length != num_fields)
+            return false;
+    }
+
+    // all sampled lines has a number in a column and potential header doesn't - header
+    for (var c = 0; c < num_fields; c++) {
+        var number_re = /^-?[0-9]+(?:[.,][0-9]+)?$/;
+        if (potential_header[c].match(number_re))
+            continue;
+        var all_numbers = true;
+        for (var i = 0; i < sampled_records.length; i++) {
+            if (!sampled_records[i][c].match(number_re)) {
+                all_numbers = false;
+                break;
+            }
+        }
+        if (all_numbers)
+            return true;
+    }
+
+    // at least N columns 2 times longer than MAX or 2 times smaller than MIN - header
+    var required_extremes_count = num_fields <= 3 ? 1 : Math.ceil(num_fields * 0.333);
+    var found_extremes = 0;
+    for (var c = 0; c < num_fields; c++) {
+        minl = sampled_records[0][c].length;
+        maxl = sampled_records[0][c].length;
+        for (var i = 1; i < sampled_records.length; i++) {
+            minl = Math.min(minl, sampled_records[i][c].length);
+            maxl = Math.max(maxl, sampled_records[i][c].length);
+        }
+        if (potential_header[c].length > maxl * 2) {
+            found_extremes += 1;
+        }
+        if (potential_header[c].length * 2 < minl) {
+            found_extremes += 1;
+        }
+    }
+    if (found_extremes >= required_extremes_count)
+        return true;
+
+    return false;
+}
+
+
+function guess_document_header(editor, rainbow_scope) {
     var sampled_lines = sample_lines(editor)
     if (sampled_lines.length <= 10)
         return null;
-    var header_line = sampled_lines[0];
+    var first_line = sampled_lines[0];
     sampled_lines.splice(0, 1);
-    //FIXME finish the function
+    var split_result = smart_split(first_line, rainbow_scope.delim, rainbow_scope.policy);
+    if (split_result[1])
+        return null;
+    var potential_header = split_result[0];
+    var sampled_records = [];
+    for (var i = 0; i < sampled_lines.length; i++) {
+        split_result = smart_split(sampled_lines[i], rainbow_scope.delim, rainbow_scope.policy);
+        if (split_result[1])
+            return null;
+        sampled_records.push(split_result[0]);
+    }
+    if (guess_if_header(potential_header, sampled_records))
+        return potential_header;
+    return null;
+}
+
+
+function get_document_header_cached(editor, rainbow_scope, invalidate=false) {
+    var file_path = editor.getPath();
+    if (file_headers_cache.has(file_path) && !invalidate) {
+        return file_headers_cache.get(file_path);
+    }
+    var guessed_header = guess_document_header(editor, rainbow_scope);
+    file_headers_cache.set(file_path, guessed_header);
+    return guessed_header;
 }
 
 
@@ -211,7 +294,7 @@ function show_statusbar_tile(editor, rainbow_scope) {
         return;
     if (!status_bar_tile)
         return;
-    // FIXME force cache recalculation for this file
+    get_document_header_cached(editor, rainbow_scope, true);
     var ui_column_display = status_bar_tile.getItem();
     if (ui_column_display) {
         var position = editor.getCursorBufferPosition();
@@ -235,7 +318,6 @@ function process_editor_switch(editor) {
 
 
 function handle_new_editor(editor) {
-    // "editor" is essentially a file view
     var file_path = editor.getPath();
     var autodetection_enabled = atom.config.get('rainbow-csv.autodetection');
     var grammar = editor.getGrammar();
@@ -267,7 +349,6 @@ function handle_new_editor(editor) {
             var position = event.newBufferPosition;
             display_position_info(editor, position, rainbow_scope, ui_column_display);
         }
-        console.log('cursor moved in ' + file_path + ' to ' + position.row + ', ' + position.column);
     }
 
     var disposable_subscription = editor.onDidChangeCursorPosition(cursor_callback);
