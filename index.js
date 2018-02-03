@@ -26,6 +26,7 @@ function prepare_colors() {
     for (var i = 0; i < color_entries.length; i++) {
         css_code += '.syntax--' + color_entries[i][0] + ' { color: ' + color_entries[i][1] + '; }';
     }
+    css_code += '.syntax--rainbowerror { color: #FFFFFF; background-color: #FF0000; }';
 
     var patch_style_node = document.createElement('style');
     patch_style_node.type = 'text/css';
