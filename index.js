@@ -285,6 +285,7 @@ function show_statusbar_tile(editor, rainbow_scope) {
 
 
 function process_editor_switch(editor) {
+    console.log("editor-swich"); //FOR_DEBUG
     if (!editor) {
         hide_statusbar_tile();
         return;
@@ -318,8 +319,10 @@ function handle_new_editor(editor) {
     if (!rainbow_scope)
         return;
 
-    show_statusbar_tile(editor, rainbow_scope);
+    do_enable_rainbow(editor, rainbow_scope);
+}
 
+function do_enable_rainbow(editor, rainbow_scope) {
     cursor_callback = function(event) {
         if (editor.hasMultipleCursors())
             return;
@@ -332,7 +335,17 @@ function handle_new_editor(editor) {
         }
     }
 
+    show_statusbar_tile(editor, rainbow_scope);
     var disposable_subscription = editor.onDidChangeCursorPosition(cursor_callback);
+    editor['rbds'] = disposable_subscription;
+}
+
+function do_disable_rainbow(editor) {
+    if (editor['rbds']) {
+        editor['rbds'].dispose();
+        delete editor['rbds'];
+    }
+    hide_statusbar_tile();
 }
 
 
@@ -340,6 +353,13 @@ function activate(state) {
     prepare_colors();
     var disposable_subscription = atom.workspace.observeTextEditors(handle_new_editor);
     var disposable_subscription_2 = atom.workspace.onDidChangeActiveTextEditor(process_editor_switch);
+    atom.commands.add('atom-text-editor', 'rainbow-csv:disable', disable_rainbow);
+    var submenu_entries = [];
+    submenu_entries.push({label: 'Disable', command: 'rainbow-csv:disable'});
+    submenu_entries.push({label: 'Set as separator: Simple'});
+    submenu_entries.push({label: 'Set as separator: Quoted'});
+    var context_items = {'atom-text-editor': [{label: 'Rainbow CSV', submenu: submenu_entries}]};
+    atom.contextMenu.add(context_items);
 }
 
 
@@ -355,6 +375,20 @@ function consumeStatusBar(status_bar) {
     ui_column_display.textContent = '';
     ui_column_display.setAttribute('class', 'inline-block');
     status_bar_tile = status_bar.addLeftTile({item: ui_column_display, priority: 10});
+}
+
+
+function disable_rainbow() {
+    var editor = atom.workspace.getActiveTextEditor();
+    var rainbow_scope = get_rainbow_scope(editor.getGrammar());
+    // FIXME we should set grammar to pre-rainbow value, not to text.plain
+    if (rainbow_scope) {
+        grammar = atom.grammars.grammarForScopeName('text.plain');
+        if (!grammar)
+            return;
+        editor.setGrammar(grammar);
+        do_disable_rainbow(editor);
+    }
 }
 
 
