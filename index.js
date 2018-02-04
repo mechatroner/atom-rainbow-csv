@@ -354,10 +354,12 @@ function activate(state) {
     var disposable_subscription = atom.workspace.observeTextEditors(handle_new_editor);
     var disposable_subscription_2 = atom.workspace.onDidChangeActiveTextEditor(process_editor_switch);
     atom.commands.add('atom-text-editor', 'rainbow-csv:disable', disable_rainbow);
+    atom.commands.add('atom-text-editor', 'rainbow-csv:enable-standard', enable_rainbow_quoted);
+    atom.commands.add('atom-text-editor', 'rainbow-csv:enable-simple', enable_rainbow_simple);
     var submenu_entries = [];
     submenu_entries.push({label: 'Disable', command: 'rainbow-csv:disable'});
-    submenu_entries.push({label: 'Set as separator: Simple'});
-    submenu_entries.push({label: 'Set as separator: Quoted'});
+    submenu_entries.push({label: 'Set as separator: Standard dialect', command: 'rainbow-csv:enable-standard'});
+    submenu_entries.push({label: 'Set as separator: Simple dialect', command: 'rainbow-csv:enable-simple'});
     var context_items = {'atom-text-editor': [{label: 'Rainbow CSV', submenu: submenu_entries}]};
     atom.contextMenu.add(context_items);
 }
@@ -375,6 +377,47 @@ function consumeStatusBar(status_bar) {
     ui_column_display.textContent = '';
     ui_column_display.setAttribute('class', 'inline-block');
     status_bar_tile = status_bar.addLeftTile({item: ui_column_display, priority: 10});
+}
+
+
+function find_suitable_grammar(rainbow_delim, policy) {
+    for (var i = 0; i < rainbow_scopes.length; i++) {
+        if (rainbow_scopes[i].delim == rainbow_delim && rainbow_scopes[i].policy == policy)
+            return atom.grammars.grammarForScopeName(rainbow_scopes[i].scope_name);
+    }
+    //FIXME load grammar from file using "readGrammar()" method
+    return null;
+}
+
+
+function enable_for_selected_delim(policy) {
+    //TODO store current grammar somewhere to restore it back if needed
+    var editor = atom.workspace.getActiveTextEditor();
+    if (!editor) {
+        console.log('delim selection failure: editor not found');
+        return;
+    }
+    var rainbow_delim = editor.getSelectedText();
+    if (rainbow_delim.length != 1) {
+        atom.notifications.addError('Please select exactly one character to use as rainbow delimiter');
+        return;
+    }
+    var grammar = find_suitable_grammar(rainbow_delim, policy);
+    if (!grammar) {
+        atom.notifications.addError('Rainbow grammar was not found');
+        return;
+    }
+    editor.setGrammar(grammar);
+}
+
+
+function enable_rainbow_quoted() {
+    enable_for_selected_delim('quoted');
+}
+
+
+function enable_rainbow_simple() {
+    enable_for_selected_delim('simple');
 }
 
 
