@@ -1,3 +1,5 @@
+const path = require('path');
+
 var status_bar_tile = null;
 var file_headers_cache = new Map();
 
@@ -380,13 +382,31 @@ function consumeStatusBar(status_bar) {
 }
 
 
+function get_grammar_name(rainbow_delim, policy) {
+    var delim_map = new Map();
+    delim_map.set('/', 'slash');
+    delim_map.set(' ', 'space');
+    delim_map.set('\t', 'tab');
+    var delim_name_part = '[' + rainbow_delim + ']';
+    if (delim_map.has(rainbow_delim)) {
+        delim_name_part = delim_map.get(rainbow_delim);
+    }
+    var policy_name_part = (policy === 'simple' ? 'Simple' : 'Standard');
+    return 'Rainbow ' + delim_name_part + ' ' + policy_name_part + '.cson';
+}
+
+
 function find_suitable_grammar(rainbow_delim, policy) {
     for (var i = 0; i < rainbow_scopes.length; i++) {
         if (rainbow_scopes[i].delim == rainbow_delim && rainbow_scopes[i].policy == policy)
             return atom.grammars.grammarForScopeName(rainbow_scopes[i].scope_name);
     }
-    //FIXME load grammar from file using "readGrammar()" method
-    return null;
+    var rainbow_package_path = atom.packages.resolvePackagePath('rainbow-csv');
+    var grammar_name = get_grammar_name(rainbow_delim, policy);
+    var grammar_path = path.join(rainbow_package_path, 'custom_grammars', grammar_name);
+    console.log('reading grammar from file: ' + grammar_path);
+    var grammar = atom.grammars.readGrammarSync(grammar_path);
+    return grammar;
 }
 
 
@@ -397,6 +417,8 @@ function enable_for_selected_delim(policy) {
         console.log('delim selection failure: editor not found');
         return;
     }
+    // XXX we need standard only for handful of most commond delimiters: ,\t;
+    // this will also be useful, because this will help users make a right policy choice. there is almost 0 probability that someone would use rfc policy with other delimiters (like 'A' or '^')
     var rainbow_delim = editor.getSelectedText();
     if (rainbow_delim.length != 1) {
         atom.notifications.addError('Please select exactly one character to use as rainbow delimiter');
@@ -408,6 +430,7 @@ function enable_for_selected_delim(policy) {
         return;
     }
     editor.setGrammar(grammar);
+    //TODO save decision in session-persistent storage
 }
 
 
