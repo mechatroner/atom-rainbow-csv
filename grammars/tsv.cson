@@ -5,26 +5,29 @@
 ]
 'patterns': [
  	{
-		'match': '(?:[^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)'
-		'name': 'rainbow1'
+		'match': '([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)([^\\t]*\\t?)'
+		'name': 'rainbowline'
+		'comment': 'Authors: Dmitry Ignatovich; License: MIT'
 		'captures':
 			'1':
-				'name': 'keyword.rainbow2'
+				'name': 'rainbow1'
 			'2':
-				'name': 'entity.name.rainbow3'
+				'name': 'keyword.rainbow2'
 			'3':
+				'name': 'entity.name.rainbow3'
+			'4':
 				'name': 'comment.rainbow4'
-			'4': 
-				'name': 'string.rainbow5'
 			'5': 
-				'name': 'entity.rainbow6'
+				'name': 'string.rainbow5'
 			'6': 
-				'name': 'storage.type.rainbow7'
+				'name': 'entity.rainbow6'
 			'7': 
-				'name': 'support.rainbow8'
+				'name': 'storage.type.rainbow7'
 			'8': 
+				'name': 'support.rainbow8'
+			'9': 
 				'name': 'constant.language.rainbow9'
-			'9':
+			'10':
 				'name': 'variable.language.rainbow10'
 	}
 ]
