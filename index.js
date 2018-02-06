@@ -417,11 +417,15 @@ function enable_for_selected_delim(policy) {
         console.log('delim selection failure: editor not found');
         return;
     }
-    // XXX we need standard only for handful of most commond delimiters: ,\t;
-    // this will also be useful, because this will help users make a right policy choice. there is almost 0 probability that someone would use rfc policy with other delimiters (like 'A' or '^')
     var rainbow_delim = editor.getSelectedText();
     if (rainbow_delim.length != 1) {
         atom.notifications.addError('Please select exactly one character to use as rainbow delimiter');
+        return;
+    }
+    var standard_delims = '\t|,;';
+    if (policy == 'quoted' && standard_delims.indexOf(rainbow_delim) == -1) {
+        // Helping user make the right dialect choice:
+        atom.notifications.addError('"Standard" dialect should not be used with exotic delimiters. Try "Simple" dialect instead');
         return;
     }
     var grammar = find_suitable_grammar(rainbow_delim, policy);
