@@ -119,8 +119,8 @@ function display_position_info(editor, position, delim, policy, ui_column_displa
     var field_num = get_field_by_line_position(line_fields, column + 1);
     if (field_num === null)
         return;
-    ui_text = 'col# ' + (field_num + 1);
-    guessed_header = get_document_header_cached(editor, delim, policy);
+    var ui_text = 'col# ' + (field_num + 1);
+    var guessed_header = get_document_header_cached(editor, delim, policy);
     if (guessed_header && line_fields.length == guessed_header.length) {
         var column_name = guessed_header[field_num];
         ui_text = ui_text + ', ' + column_name;
@@ -138,7 +138,8 @@ function get_rainbow_scope(grammar) {
         if (autodetection_scopes[i].scope_name == grammar.scopeName)
             return autodetection_scopes[i];
     }
-    var rainbow_scope_regex = '^rbcs([mt])([0-9]+)$';
+    var rainbow_scope_regex = /^text\.rbcs([mt])([0-9]+)$/;
+    //console.log("grammar.scopeName:" + grammar.scopeName); //FOR_DEBUG
     var matched = grammar.scopeName.match(rainbow_scope_regex);
     if (!matched)
         return null;
@@ -158,7 +159,7 @@ function is_delimited_table(sampled_lines, delim, policy) {
     if (num_fields < 2)
         return false;
     for (var i = 1; i < sampled_lines.length; i++) {
-        var split_result = smart_split(sampled_lines[i], delim, policy);
+        split_result = smart_split(sampled_lines[i], delim, policy);
         if (split_result[1])
             return false;
         if (split_result[0].length != num_fields)
@@ -295,7 +296,6 @@ function show_statusbar_tile(editor, delim, policy) {
 
 
 function process_editor_switch(editor) {
-    console.log("editor-swich"); //FOR_DEBUG
     if (!editor) {
         hide_statusbar_tile();
         return;
@@ -449,7 +449,12 @@ function write_index(records, index_path) {
 
 
 function try_read_index(index_path) {
-    var content = fs.readFileSync(index_path);
+    var read_result = fs.readFileSync(index_path);
+    if (read_result[0] != null) {
+        console.log('An error has occured while reading index ' + index_path + '; Error: ' + read_result[0]);
+        return [];
+    }
+    var content = read_result[1];
     var lines = content.split('\n');
     var records = lines.map(v => v.split('\t'));
     return records;
@@ -472,7 +477,7 @@ function update_table_record(file_path, delim, policy) {
 }
 
 
-function do_set_rainbow_grammar(editor, rainbow_grammar) {
+function do_set_rainbow_grammar(editor, grammar) {
     var old_grammar = editor.getGrammar();
     if (old_grammar) {
         editor['rcsv__package_old_grammar'] = old_grammar;
@@ -480,7 +485,8 @@ function do_set_rainbow_grammar(editor, rainbow_grammar) {
     editor.setGrammar(grammar);
     var file_path = editor.getPath();
     if (file_path) {
-        update_table_record(file_path, rainbow_delim, policy);
+        var rainbow_scope = get_rainbow_scope(grammar);
+        update_table_record(file_path, rainbow_scope.delim, rainbow_scope.policy);
     }
 }
 
