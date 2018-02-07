@@ -1,9 +1,11 @@
 const path = require('path');
+const os = require('os');
+const fs = require('fs');
 
 var status_bar_tile = null;
 var file_headers_cache = new Map();
 
-var rainbow_scopes = [
+var autodetection_scopes = [
     {scope_name: 'text.csv', delim: ',', policy: 'quoted'},
     {scope_name: 'text.tsv', delim: '\t', policy: 'simple'}
 ];
@@ -105,11 +107,11 @@ function get_field_by_line_position(fields, query_pos) {
 }
 
 
-function display_position_info(editor, position, rainbow_scope, ui_column_display) {
+function display_position_info(editor, position, delim, policy, ui_column_display) {
     var line_num = position.row;
     var column = position.column;
     var line_text = editor.lineTextForBufferRow(line_num);
-    var split_result = smart_split(line_text, rainbow_scope.delim, rainbow_scope.policy, true);
+    var split_result = smart_split(line_text, delim, policy, true);
     if (split_result[1]) {
         return; 
     }
@@ -118,7 +120,7 @@ function display_position_info(editor, position, rainbow_scope, ui_column_displa
     if (field_num === null)
         return;
     ui_text = 'col# ' + (field_num + 1);
-    guessed_header = get_document_header_cached(editor, rainbow_scope);
+    guessed_header = get_document_header_cached(editor, delim, policy);
     if (guessed_header && line_fields.length == guessed_header.length) {
         var column_name = guessed_header[field_num];
         ui_text = ui_text + ', ' + column_name;
@@ -130,13 +132,19 @@ function display_position_info(editor, position, rainbow_scope, ui_column_displa
 
 
 function get_rainbow_scope(grammar) {
-    if (!grammar)
+    if (!grammar || !grammar.scopeName)
         return null;
-    for (var i = 0; i < rainbow_scopes.length; i++) {
-        if (rainbow_scopes[i].scope_name == grammar.scopeName)
-            return rainbow_scopes[i];
+    for (var i = 0; i < autodetection_scopes.length; i++) {
+        if (autodetection_scopes[i].scope_name == grammar.scopeName)
+            return autodetection_scopes[i];
     }
-    return null;
+    var rainbow_scope_regex = '^rbcs([mt])([0-9]+)$';
+    var matched = grammar.scopeName.match(rainbow_scope_regex);
+    if (!matched)
+        return null;
+    var policy = (matched[1] == 'm' ? 'simple' : 'quoted');
+    var delim = String.fromCharCode(matched[2]);
+    return {'scope_name': grammar.scopeName, 'delim': delim, 'policy': policy};
 }
 
 
@@ -188,9 +196,9 @@ function sample_lines(editor) {
 
 function autodetect_delim(editor) {
     var sampled_lines = sample_lines(editor);
-    for (var i = 0; i < rainbow_scopes.length; i++) {
-        if (is_delimited_table(sampled_lines, rainbow_scopes[i].delim, rainbow_scopes[i].policy))
-            return rainbow_scopes[i].scope_name;
+    for (var i = 0; i < autodetection_scopes.length; i++) {
+        if (is_delimited_table(sampled_lines, autodetection_scopes[i].delim, autodetection_scopes[i].policy))
+            return autodetection_scopes[i].scope_name;
     }
     return null;
 }
@@ -238,19 +246,19 @@ function guess_if_header(potential_header, sampled_records) {
 }
 
 
-function guess_document_header(editor, rainbow_scope) {
+function guess_document_header(editor, delim, policy) {
     var sampled_lines = sample_lines(editor)
     if (sampled_lines.length <= 10)
         return null;
     var first_line = sampled_lines[0];
     sampled_lines.splice(0, 1);
-    var split_result = smart_split(first_line, rainbow_scope.delim, rainbow_scope.policy);
+    var split_result = smart_split(first_line, delim, policy);
     if (split_result[1])
         return null;
     var potential_header = split_result[0];
     var sampled_records = [];
     for (var i = 0; i < sampled_lines.length; i++) {
-        split_result = smart_split(sampled_lines[i], rainbow_scope.delim, rainbow_scope.policy);
+        split_result = smart_split(sampled_lines[i], delim, policy);
         if (split_result[1])
             return null;
         sampled_records.push(split_result[0]);
@@ -261,27 +269,27 @@ function guess_document_header(editor, rainbow_scope) {
 }
 
 
-function get_document_header_cached(editor, rainbow_scope, invalidate=false) {
+function get_document_header_cached(editor, delim, policy, invalidate=false) {
     var file_path = editor.getPath();
     if (file_headers_cache.has(file_path) && !invalidate) {
         return file_headers_cache.get(file_path);
     }
-    var guessed_header = guess_document_header(editor, rainbow_scope);
+    var guessed_header = guess_document_header(editor, delim, policy);
     file_headers_cache.set(file_path, guessed_header);
     return guessed_header;
 }
 
 
-function show_statusbar_tile(editor, rainbow_scope) {
+function show_statusbar_tile(editor, delim, policy) {
     if (editor.hasMultipleCursors())
         return;
     if (!status_bar_tile)
         return;
-    get_document_header_cached(editor, rainbow_scope, true);
+    get_document_header_cached(editor, delim, policy, true);
     var ui_column_display = status_bar_tile.getItem();
     if (ui_column_display) {
         var position = editor.getCursorBufferPosition();
-        display_position_info(editor, position, rainbow_scope, ui_column_display);
+        display_position_info(editor, position, delim, policy, ui_column_display);
     }
 }
 
@@ -294,7 +302,7 @@ function process_editor_switch(editor) {
     }
     var rainbow_scope = get_rainbow_scope(editor.getGrammar());
     if (rainbow_scope) {
-        show_statusbar_tile(editor, rainbow_scope);
+        show_statusbar_tile(editor, rainbow_scope.delim, rainbow_scope.policy);
     } else {
         hide_statusbar_tile();
     }
@@ -303,6 +311,7 @@ function process_editor_switch(editor) {
 
 function handle_new_editor(editor) {
     var file_path = editor.getPath();
+    // FIXME check index first to make sure if highlighting was already enabled or disabled for this file
     var autodetection_enabled = atom.config.get('rainbow-csv.autodetection');
     var grammar = editor.getGrammar();
     if (!grammar)
@@ -315,16 +324,17 @@ function handle_new_editor(editor) {
         grammar = atom.grammars.grammarForScopeName(detected_scope_name);
         if (!grammar)
             return;
-        editor.setGrammar(grammar);
+        do_set_rainbow_grammar(editor, grammar);
     }
     var rainbow_scope = get_rainbow_scope(grammar);
     if (!rainbow_scope)
         return;
 
-    do_enable_rainbow(editor, rainbow_scope);
+    do_enable_rainbow(editor, rainbow_scope.delim, rainbow_scope.policy);
 }
 
-function do_enable_rainbow(editor, rainbow_scope) {
+
+function do_enable_rainbow(editor, delim, policy) {
     cursor_callback = function(event) {
         if (editor.hasMultipleCursors())
             return;
@@ -333,21 +343,32 @@ function do_enable_rainbow(editor, rainbow_scope) {
         var ui_column_display = status_bar_tile.getItem();
         if (ui_column_display) {
             var position = event.newBufferPosition;
-            display_position_info(editor, position, rainbow_scope, ui_column_display);
+            display_position_info(editor, position, delim, policy, ui_column_display);
         }
     }
 
-    show_statusbar_tile(editor, rainbow_scope);
+    show_statusbar_tile(editor, delim, policy);
     var disposable_subscription = editor.onDidChangeCursorPosition(cursor_callback);
-    editor['rbds'] = disposable_subscription;
+    editor['rcsv__package_ds'] = disposable_subscription;
 }
 
+
 function do_disable_rainbow(editor) {
-    if (editor['rbds']) {
-        editor['rbds'].dispose();
-        delete editor['rbds'];
+    if (editor.hasOwnProperty('rcsv__package_old_grammar')) {
+        editor.setGrammar(editor['rcsv__package_old_grammar']);
+        delete editor['rcsv__package_old_grammar'];
+    } else {
+        editor.setGrammar(atom.grammars.grammarForScopeName('text.plain'));
+    }
+    if (editor['rcsv__package_ds']) {
+        editor['rcsv__package_ds'].dispose();
+        delete editor['rcsv__package_ds'];
     }
     hide_statusbar_tile();
+    var file_path = editor.getPath();
+    if (file_path) {
+        update_table_record(file_path, 'disabled', '');
+    }
 }
 
 
@@ -397,9 +418,9 @@ function get_grammar_name(rainbow_delim, policy) {
 
 
 function find_suitable_grammar(rainbow_delim, policy) {
-    for (var i = 0; i < rainbow_scopes.length; i++) {
-        if (rainbow_scopes[i].delim == rainbow_delim && rainbow_scopes[i].policy == policy)
-            return atom.grammars.grammarForScopeName(rainbow_scopes[i].scope_name);
+    for (var i = 0; i < autodetection_scopes.length; i++) {
+        if (autodetection_scopes[i].delim == rainbow_delim && autodetection_scopes[i].policy == policy)
+            return atom.grammars.grammarForScopeName(autodetection_scopes[i].scope_name);
     }
     var rainbow_package_path = atom.packages.resolvePackagePath('rainbow-csv');
     var grammar_name = get_grammar_name(rainbow_delim, policy);
@@ -410,8 +431,61 @@ function find_suitable_grammar(rainbow_delim, policy) {
 }
 
 
+function update_records(records, record_key, new_record) {
+    for (var i = 0; i < records.length; i++) {
+        if (records[i].length && records[i][0] == record_key) {
+            records[i] = new_record;
+            return;
+        }
+    }
+    records.push(new_record);
+}
+
+
+function write_index(records, index_path) {
+    var lines = records.map(l => l.join('\t'));
+    fs.writeFileSync(index_path, lines.join('\n'));
+}
+
+
+function try_read_index(index_path) {
+    var content = fs.readFileSync(index_path);
+    var lines = content.split('\n');
+    var records = lines.map(v => v.split('\t'));
+    return records;
+}
+
+
+function update_table_record(file_path, delim, policy) {
+    if (!file_path)
+        return;
+    var home_dir = os.homedir();
+    var index_path = path.join(home_dir, '.rbql_table_index');
+    var records = try_read_index(index_path);
+    var new_record = [file_path, delim, policy, ''];
+    var record_key = file_path;
+    update_records(records, record_key, new_record);
+    if (records.length > 100) {
+        records.splice(0, 1);
+    }
+    write_index(records, index_path);
+}
+
+
+function do_set_rainbow_grammar(editor, rainbow_grammar) {
+    var old_grammar = editor.getGrammar();
+    if (old_grammar) {
+        editor['rcsv__package_old_grammar'] = old_grammar;
+    }
+    editor.setGrammar(grammar);
+    var file_path = editor.getPath();
+    if (file_path) {
+        update_table_record(file_path, rainbow_delim, policy);
+    }
+}
+
+
 function enable_for_selected_delim(policy) {
-    //TODO store current grammar somewhere to restore it back if needed
     var editor = atom.workspace.getActiveTextEditor();
     if (!editor) {
         console.log('delim selection failure: editor not found');
@@ -433,8 +507,7 @@ function enable_for_selected_delim(policy) {
         atom.notifications.addError('Rainbow grammar was not found');
         return;
     }
-    editor.setGrammar(grammar);
-    //TODO save decision in session-persistent storage
+    do_set_rainbow_grammar(editor, grammar);
 }
 
 
@@ -451,12 +524,7 @@ function enable_rainbow_simple() {
 function disable_rainbow() {
     var editor = atom.workspace.getActiveTextEditor();
     var rainbow_scope = get_rainbow_scope(editor.getGrammar());
-    // FIXME we should set grammar to pre-rainbow value, not to text.plain
     if (rainbow_scope) {
-        grammar = atom.grammars.grammarForScopeName('text.plain');
-        if (!grammar)
-            return;
-        editor.setGrammar(grammar);
         do_disable_rainbow(editor);
     }
 }
