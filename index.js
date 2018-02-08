@@ -199,7 +199,7 @@ function autodetect_delim(editor) {
     var sampled_lines = sample_lines(editor);
     for (var i = 0; i < autodetection_scopes.length; i++) {
         if (is_delimited_table(sampled_lines, autodetection_scopes[i].delim, autodetection_scopes[i].policy))
-            return autodetection_scopes[i].scope_name;
+            return autodetection_scopes[i];
     }
     return null;
 }
@@ -309,32 +309,76 @@ function process_editor_switch(editor) {
 }
 
 
+function unescape_index_record(record) {
+    if (record.length >= 2 && record[1] == 'TAB')
+        record[1] = '\t';
+    return record;
+}
+
+
+function try_get_file_record(file_path) {
+    var home_dir = os.homedir();
+    var index_path = path.join(home_dir, '.rbql_table_index');
+    var records = try_read_index(index_path);
+    for (var i = 0; i < records.length; i++) {
+        if (records[i].length && records[i][0] == file_path) {
+            return unescape_index_record(records[i]);
+        }
+    }
+    return null;
+}
+
+
+function do_set_rainbow_grammar(editor, delim, policy) {
+    var grammar = find_suitable_grammar(delim, policy);
+    if (!grammar) {
+        atom.notifications.addError('Rainbow grammar was not found');
+        return;
+    }
+    var old_grammar = editor.getGrammar();
+    if (old_grammar) {
+        editor['rcsv__package_old_grammar'] = old_grammar;
+    }
+    editor.setGrammar(grammar);
+    var file_path = editor.getPath();
+    if (file_path) {
+        var rainbow_scope = get_rainbow_scope(grammar);
+        update_table_record(file_path, rainbow_scope.delim, rainbow_scope.policy);
+    }
+    enable_statusbar(editor, delim, policy);
+}
+
+
 function handle_new_editor(editor) {
     var file_path = editor.getPath();
-    // FIXME check index first to make sure if highlighting was already enabled or disabled for this file
+    var file_record = try_get_file_record(file_path);
+    if (file_record && file_record.length >= 3) {
+        var delim = file_record[1];
+        var policy = file_record[2];
+        if (delim != 'disabled') {
+            do_set_rainbow_grammar(editor, delim, policy);
+        }
+        return;
+    }
     var autodetection_enabled = atom.config.get('rainbow-csv.autodetection');
     var grammar = editor.getGrammar();
     if (!grammar)
         return; // should never happen
     var plain_text_grammars = ['text.plain', 'text.plain.null-grammar'];
     if (plain_text_grammars.indexOf(grammar.scopeName) != -1 && autodetection_enabled) {
-        var detected_scope_name = autodetect_delim(editor);
-        if (detected_scope_name === null)
-            return;
-        grammar = atom.grammars.grammarForScopeName(detected_scope_name);
-        if (!grammar)
-            return;
-        do_set_rainbow_grammar(editor, grammar);
+        var detected_scope = autodetect_delim(editor);
+        do_set_rainbow_grammar(editor, detected_scope.delim, detected_scope.policy);
+        return;
     }
     var rainbow_scope = get_rainbow_scope(grammar);
     if (!rainbow_scope)
         return;
-
-    do_enable_rainbow(editor, rainbow_scope.delim, rainbow_scope.policy);
+    // A rainbow grammar is already set no need to do it again, just enable statusbar
+    enable_statusbar(editor, rainbow_scope.delim, rainbow_scope.policy);
 }
 
 
-function do_enable_rainbow(editor, delim, policy) {
+function enable_statusbar(editor, delim, policy) {
     cursor_callback = function(event) {
         if (editor.hasMultipleCursors())
             return;
@@ -466,9 +510,7 @@ function try_read_index(index_path) {
     var records = [];
     for (var i = 0; i < lines.length; i++) {
         var record = lines[i].split('\t');
-        if (record.length >= 2 && record[1] == 'TAB')
-            record[1] = '\t';
-        records.push(record);
+        records.push(unescape_index_record(record));
     }
     return records;
 }
@@ -490,20 +532,6 @@ function update_table_record(file_path, delim, policy) {
 }
 
 
-function do_set_rainbow_grammar(editor, grammar) {
-    var old_grammar = editor.getGrammar();
-    if (old_grammar) {
-        editor['rcsv__package_old_grammar'] = old_grammar;
-    }
-    editor.setGrammar(grammar);
-    var file_path = editor.getPath();
-    if (file_path) {
-        var rainbow_scope = get_rainbow_scope(grammar);
-        update_table_record(file_path, rainbow_scope.delim, rainbow_scope.policy);
-    }
-}
-
-
 function enable_for_selected_delim(policy) {
     var editor = atom.workspace.getActiveTextEditor();
     if (!editor) {
@@ -521,12 +549,7 @@ function enable_for_selected_delim(policy) {
         atom.notifications.addError('"Standard" dialect should not be used with exotic delimiters. Try "Simple" dialect instead');
         return;
     }
-    var grammar = find_suitable_grammar(rainbow_delim, policy);
-    if (!grammar) {
-        atom.notifications.addError('Rainbow grammar was not found');
-        return;
-    }
-    do_set_rainbow_grammar(editor, grammar);
+    do_set_rainbow_grammar(editor, rainbow_delim, policy);
 }
 
 
