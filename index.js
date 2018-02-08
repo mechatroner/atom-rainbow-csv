@@ -342,8 +342,7 @@ function do_set_rainbow_grammar(editor, delim, policy) {
     editor.setGrammar(grammar);
     var file_path = editor.getPath();
     if (file_path) {
-        var rainbow_scope = get_rainbow_scope(grammar);
-        update_table_record(file_path, rainbow_scope.delim, rainbow_scope.policy);
+        update_table_record(file_path, delim, policy);
     }
     enable_statusbar(editor, delim, policy);
 }
@@ -360,21 +359,23 @@ function handle_new_editor(editor) {
         }
         return;
     }
-    var autodetection_enabled = atom.config.get('rainbow-csv.autodetection');
     var grammar = editor.getGrammar();
-    if (!grammar)
-        return; // should never happen
+    if (!grammar) {
+        console.log('Unknown error: unable to get current grammar');
+        return;
+    }
+    var rainbow_scope = get_rainbow_scope(grammar);
+    if (rainbow_scope) {
+        enable_statusbar(editor, rainbow_scope.delim, rainbow_scope.policy);
+        return;
+    }
+    var autodetection_enabled = atom.config.get('rainbow-csv.autodetection');
     var plain_text_grammars = ['text.plain', 'text.plain.null-grammar'];
     if (plain_text_grammars.indexOf(grammar.scopeName) != -1 && autodetection_enabled) {
         var detected_scope = autodetect_delim(editor);
         do_set_rainbow_grammar(editor, detected_scope.delim, detected_scope.policy);
         return;
     }
-    var rainbow_scope = get_rainbow_scope(grammar);
-    if (!rainbow_scope)
-        return;
-    // A rainbow grammar is already set no need to do it again, just enable statusbar
-    enable_statusbar(editor, rainbow_scope.delim, rainbow_scope.policy);
 }
 
 
