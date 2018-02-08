@@ -443,20 +443,33 @@ function update_records(records, record_key, new_record) {
 
 
 function write_index(records, index_path) {
-    var lines = records.map(l => l.join('\t'));
+    var lines = [];
+    for (var i = 0; i < records.length; i++) {
+        var record = records[i].slice(0);
+        if (record.length >= 2 && record[1] == '\t')
+            record[1] = 'TAB';
+        lines.push(record.join('\t'));
+    }
     fs.writeFileSync(index_path, lines.join('\n'));
 }
 
 
 function try_read_index(index_path) {
-    var read_result = fs.readFileSync(index_path);
-    if (read_result[0] != null) {
-        console.log('An error has occured while reading index ' + index_path + '; Error: ' + read_result[0]);
+    var content = null;
+    try {
+        content = fs.readFileSync(index_path, 'utf-8');
+    } catch (e) {
+        console.log('An error has occured while reading index ' + index_path + '; Error: ' + e);
         return [];
     }
-    var content = read_result[1];
     var lines = content.split('\n');
-    var records = lines.map(v => v.split('\t'));
+    var records = [];
+    for (var i = 0; i < lines.length; i++) {
+        var record = lines[i].split('\t');
+        if (record.length >= 2 && record[1] == 'TAB')
+            record[1] = '\t';
+        records.push(record);
+    }
     return records;
 }
 
