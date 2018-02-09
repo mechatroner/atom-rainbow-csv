@@ -139,7 +139,6 @@ function get_rainbow_scope(grammar) {
             return autodetection_scopes[i];
     }
     var rainbow_scope_regex = /^text\.rbcs([mt])([0-9]+)$/;
-    //console.log("grammar.scopeName:" + grammar.scopeName); //FOR_DEBUG
     var matched = grammar.scopeName.match(rainbow_scope_regex);
     if (!matched)
         return null;
@@ -355,7 +354,9 @@ function handle_new_editor(editor) {
         var delim = file_record[1];
         var policy = file_record[2];
         if (delim != 'disabled') {
-            do_set_rainbow_grammar(editor, delim, policy);
+            // We need this timeout hack here because of a race condition: 
+            // sometimes this callback gets executed before Atom sets a default grammar for the editor
+            setTimeout(function() { do_set_rainbow_grammar(editor, delim, policy); }, 2000);
         }
         return;
     }
@@ -470,7 +471,6 @@ function find_suitable_grammar(rainbow_delim, policy) {
     var rainbow_package_path = atom.packages.resolvePackagePath('rainbow-csv');
     var grammar_name = get_grammar_name(rainbow_delim, policy);
     var grammar_path = path.join(rainbow_package_path, 'custom_grammars', grammar_name);
-    console.log('reading grammar from file: ' + grammar_path);
     var grammar = atom.grammars.readGrammarSync(grammar_path);
     return grammar;
 }
@@ -510,6 +510,8 @@ function try_read_index(index_path) {
     var lines = content.split('\n');
     var records = [];
     for (var i = 0; i < lines.length; i++) {
+        if (!lines[i])
+            continue;
         var record = lines[i].split('\t');
         records.push(unescape_index_record(record));
     }
@@ -546,7 +548,7 @@ function enable_for_selected_delim(policy) {
     }
     var standard_delims = '\t|,;';
     if (policy == 'quoted' && standard_delims.indexOf(rainbow_delim) == -1) {
-        // Helping user make the right dialect choice:
+        // By limiting number of standard dialect delims we are helping users to make the right dialect choice
         atom.notifications.addError('"Standard" dialect should not be used with exotic delimiters. Try "Simple" dialect instead');
         return;
     }
