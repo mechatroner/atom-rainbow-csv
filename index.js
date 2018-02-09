@@ -364,6 +364,14 @@ function handle_new_editor(editor) {
             // We need this timeout hack here because of a race condition: 
             // sometimes this callback gets executed before Atom sets a default grammar for the editor
             setTimeout(function() { do_set_rainbow_grammar(editor, delim, policy); }, 2000);
+        } else {
+            setTimeout(function() {
+                //this could be due to filetype-based detection
+                var rainbow_scope = get_rainbow_scope(editor.getGrammar());
+                if (rainbow_scope) {
+                    do_disable_rainbow(editor);
+                }
+            }, 2000);
         }
         return;
     }
