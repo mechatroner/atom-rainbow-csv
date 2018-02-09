@@ -335,7 +335,8 @@ function do_set_rainbow_grammar(editor, delim, policy) {
         return;
     }
     var old_grammar = editor.getGrammar();
-    if (old_grammar) {
+    if (old_grammar && old_grammar.scopeName != 'text.plain.null-grammar') {
+        // We don't want to save null-grammar, because it doesn't cancel rainbow grammar
         editor['rcsv__package_old_grammar'] = old_grammar;
     }
     editor.setGrammar(grammar);
@@ -344,6 +345,12 @@ function do_set_rainbow_grammar(editor, delim, policy) {
         update_table_record(file_path, delim, policy);
     }
     enable_statusbar(editor, delim, policy);
+}
+
+
+function is_plain_text_grammar(grammar) {
+    var plain_text_grammars = ['text.plain', 'text.plain.null-grammar'];
+    return (grammar && plain_text_grammars.indexOf(grammar.scopeName) != -1);
 }
 
 
@@ -371,8 +378,7 @@ function handle_new_editor(editor) {
         return;
     }
     var autodetection_enabled = atom.config.get('rainbow-csv.autodetection');
-    var plain_text_grammars = ['text.plain', 'text.plain.null-grammar'];
-    if (plain_text_grammars.indexOf(grammar.scopeName) != -1 && autodetection_enabled) {
+    if (is_plain_text_grammar(grammar) && autodetection_enabled) {
         var detected_scope = autodetect_delim(editor);
         do_set_rainbow_grammar(editor, detected_scope.delim, detected_scope.policy);
         return;
@@ -393,7 +399,6 @@ function enable_statusbar(editor, delim, policy) {
         }
     }
 
-    show_statusbar_tile(editor, delim, policy);
     var disposable_subscription = editor.onDidChangeCursorPosition(cursor_callback);
     editor['rcsv__package_ds'] = disposable_subscription;
 }
@@ -568,8 +573,7 @@ function enable_rainbow_simple() {
 
 function disable_rainbow() {
     var editor = atom.workspace.getActiveTextEditor();
-    var rainbow_scope = get_rainbow_scope(editor.getGrammar());
-    if (rainbow_scope) {
+    if (get_rainbow_scope(editor.getGrammar())) {
         do_disable_rainbow(editor);
     }
 }
