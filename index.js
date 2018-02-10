@@ -399,13 +399,14 @@ function enable_statusbar(editor, delim, policy) {
 
 
 function do_disable_rainbow(editor) {
+    // TODO add grammar change subscriber to handle situation when user disables rainbow grammar by another mechanism
     if (editor.hasOwnProperty('rcsv__package_old_grammar')) {
         editor.setGrammar(editor['rcsv__package_old_grammar']);
         delete editor['rcsv__package_old_grammar'];
     } else {
         editor.setGrammar(atom.grammars.grammarForScopeName('text.plain'));
     }
-    if (editor['rcsv__package_ds']) {
+    if (editor.hasOwnProperty('rcsv__package_ds')) {
         editor['rcsv__package_ds'].dispose();
         delete editor['rcsv__package_ds'];
     }
