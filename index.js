@@ -361,15 +361,6 @@ function handle_new_editor(editor) {
             // We need this timeout hack here because of a race condition: 
             // sometimes this callback gets executed before Atom sets a default grammar for the editor
             setTimeout(function() { do_set_rainbow_grammar(editor, delim, policy); }, 2000);
-        } else {
-            setTimeout(function() {
-                // This could be due to filetype-based detection
-                // TODO remove fantasy filetypes from the generated grammars to get rid of this hack
-                var rainbow_scope = get_rainbow_scope(editor.getGrammar());
-                if (rainbow_scope) {
-                    do_disable_rainbow(editor);
-                }
-            }, 2000);
         }
         return;
     }
@@ -378,15 +369,12 @@ function handle_new_editor(editor) {
         console.log('Unknown error: unable to get current grammar');
         return;
     }
-    var rainbow_scope = get_rainbow_scope(grammar);
-    if (rainbow_scope) {
-        enable_statusbar(editor, rainbow_scope.delim, rainbow_scope.policy);
-        return;
-    }
     var autodetection_enabled = atom.config.get('rainbow-csv.autodetection');
     if (is_plain_text_grammar(grammar) && autodetection_enabled) {
         var detected_dialect = autodetect_dialect(editor);
-        do_set_rainbow_grammar(editor, detected_dialect.delim, detected_dialect.policy);
+        if (detected_dialect) {
+            do_set_rainbow_grammar(editor, detected_dialect.delim, detected_dialect.policy);
+        }
         return;
     }
 }
