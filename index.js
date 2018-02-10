@@ -5,9 +5,10 @@ const fs = require('fs');
 var status_bar_tile = null;
 var file_headers_cache = new Map();
 
-var autodetection_scopes = [
-    {scope_name: 'text.csv', delim: ',', policy: 'quoted'},
-    {scope_name: 'text.tsv', delim: '\t', policy: 'simple'}
+var autodetection_dialects = [
+    {delim: ',', policy: 'quoted'},
+    {delim: ';', policy: 'quoted'},
+    {delim: '\t', policy: 'simple'}
 ];
 
 
@@ -134,10 +135,6 @@ function display_position_info(editor, position, delim, policy, ui_column_displa
 function get_rainbow_scope(grammar) {
     if (!grammar || !grammar.scopeName)
         return null;
-    for (var i = 0; i < autodetection_scopes.length; i++) {
-        if (autodetection_scopes[i].scope_name == grammar.scopeName)
-            return autodetection_scopes[i];
-    }
     var rainbow_scope_regex = /^text\.rbcs([mt])([0-9]+)$/;
     var matched = grammar.scopeName.match(rainbow_scope_regex);
     if (!matched)
@@ -194,11 +191,11 @@ function sample_lines(editor) {
 }
 
 
-function autodetect_delim(editor) {
+function autodetect_dialect(editor) {
     var sampled_lines = sample_lines(editor);
-    for (var i = 0; i < autodetection_scopes.length; i++) {
-        if (is_delimited_table(sampled_lines, autodetection_scopes[i].delim, autodetection_scopes[i].policy))
-            return autodetection_scopes[i];
+    for (var i = 0; i < autodetection_dialects.length; i++) {
+        if (is_delimited_table(sampled_lines, autodetection_dialects[i].delim, autodetection_dialects[i].policy))
+            return autodetection_dialects[i];
     }
     return null;
 }
@@ -366,7 +363,8 @@ function handle_new_editor(editor) {
             setTimeout(function() { do_set_rainbow_grammar(editor, delim, policy); }, 2000);
         } else {
             setTimeout(function() {
-                //this could be due to filetype-based detection
+                // This could be due to filetype-based detection
+                // TODO remove fantasy filetypes from the generated grammars to get rid of this hack
                 var rainbow_scope = get_rainbow_scope(editor.getGrammar());
                 if (rainbow_scope) {
                     do_disable_rainbow(editor);
@@ -387,8 +385,8 @@ function handle_new_editor(editor) {
     }
     var autodetection_enabled = atom.config.get('rainbow-csv.autodetection');
     if (is_plain_text_grammar(grammar) && autodetection_enabled) {
-        var detected_scope = autodetect_delim(editor);
-        do_set_rainbow_grammar(editor, detected_scope.delim, detected_scope.policy);
+        var detected_dialect = autodetect_dialect(editor);
+        do_set_rainbow_grammar(editor, detected_dialect.delim, detected_dialect.policy);
         return;
     }
 }
@@ -477,10 +475,6 @@ function get_grammar_name(rainbow_delim, policy) {
 
 
 function find_suitable_grammar(rainbow_delim, policy) {
-    for (var i = 0; i < autodetection_scopes.length; i++) {
-        if (autodetection_scopes[i].delim == rainbow_delim && autodetection_scopes[i].policy == policy)
-            return atom.grammars.grammarForScopeName(autodetection_scopes[i].scope_name);
-    }
     var rainbow_package_path = atom.packages.resolvePackagePath('rainbow-csv');
     var grammar_name = get_grammar_name(rainbow_delim, policy);
     var grammar_path = path.join(rainbow_package_path, 'custom_grammars', grammar_name);
