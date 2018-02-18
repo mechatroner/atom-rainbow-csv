@@ -550,11 +550,15 @@ function enable_for_selected_delim(policy) {
         atom.notifications.addError('Please select exactly one character to use as rainbow delimiter');
         return;
     }
-    // FIXME check simple delims too
     var standard_delims = '\t|,;';
+    var simple_delims = '\t !"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+    if (simple_delims.indexOf(rainbow_delim) == -1) {
+        atom.notifications.addError('Selected separator is not supported');
+        return;
+    }
     if (policy == 'quoted' && standard_delims.indexOf(rainbow_delim) == -1) {
         // By limiting number of standard dialect delims we are helping users to make the right dialect choice
-        atom.notifications.addError('"Standard" dialect should not be used with exotic delimiters. Try "Simple" dialect instead');
+        atom.notifications.addError('"Standard" dialect should not be used with unconventional separators. Try "Simple" dialect instead');
         return;
     }
     do_set_rainbow_grammar(editor, rainbow_delim, policy);
