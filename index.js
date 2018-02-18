@@ -451,10 +451,17 @@ function consumeStatusBar(status_bar) {
 
 function get_grammar_name(rainbow_delim, policy) {
     var delim_map = new Map();
+    delim_map.set('<', 'less-than');
+    delim_map.set('>', 'greater-than');
+    delim_map.set(':', 'colon');
+    delim_map.set('"', 'double-quote');
     delim_map.set('/', 'slash');
     delim_map.set('\\', 'backslash');
-    delim_map.set(' ', 'space');
+    delim_map.set('|', 'pipe');
+    delim_map.set('?', 'question-mark');
+    delim_map.set('*', 'asterisk');
     delim_map.set('\t', 'tab');
+    delim_map.set(' ', 'space');
     var delim_name_part = '[' + rainbow_delim + ']';
     if (delim_map.has(rainbow_delim)) {
         delim_name_part = delim_map.get(rainbow_delim);
@@ -543,6 +550,7 @@ function enable_for_selected_delim(policy) {
         atom.notifications.addError('Please select exactly one character to use as rainbow delimiter');
         return;
     }
+    // FIXME check simple delims too
     var standard_delims = '\t|,;';
     if (policy == 'quoted' && standard_delims.indexOf(rainbow_delim) == -1) {
         // By limiting number of standard dialect delims we are helping users to make the right dialect choice

@@ -1,11 +1,11 @@
-'scopeName': 'text.rbcsm60'
-'name': 'Rainbow [<] Simple'
+'scopeName': 'text.rbcsm42'
+'name': 'Rainbow asterisk Simple'
 'fileTypes': [
-	'rbcsm60'
+	'rbcsm42'
 ]
 'patterns': [
  	{
-		'match': '([^<]*<?)([^<]*<?)([^<]*<?)([^<]*<?)([^<]*<?)([^<]*<?)([^<]*<?)([^<]*<?)([^<]*<?)([^<]*<?)'
+		'match': '([^\\*]*\\*?)([^\\*]*\\*?)([^\\*]*\\*?)([^\\*]*\\*?)([^\\*]*\\*?)([^\\*]*\\*?)([^\\*]*\\*?)([^\\*]*\\*?)([^\\*]*\\*?)([^\\*]*\\*?)'
 		'name': 'rainbowline'
 		'captures':
 			'1':

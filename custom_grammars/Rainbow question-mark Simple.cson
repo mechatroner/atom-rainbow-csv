@@ -1,11 +1,11 @@
-'scopeName': 'text.rbcsm62'
-'name': 'Rainbow [>] Simple'
+'scopeName': 'text.rbcsm63'
+'name': 'Rainbow question-mark Simple'
 'fileTypes': [
-	'rbcsm62'
+	'rbcsm63'
 ]
 'patterns': [
  	{
-		'match': '([^>]*>?)([^>]*>?)([^>]*>?)([^>]*>?)([^>]*>?)([^>]*>?)([^>]*>?)([^>]*>?)([^>]*>?)([^>]*>?)'
+		'match': '([^\\?]*\\??)([^\\?]*\\??)([^\\?]*\\??)([^\\?]*\\??)([^\\?]*\\??)([^\\?]*\\??)([^\\?]*\\??)([^\\?]*\\??)([^\\?]*\\??)([^\\?]*\\??)'
 		'name': 'rainbowline'
 		'captures':
 			'1':

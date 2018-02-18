@@ -1,11 +1,11 @@
-'scopeName': 'text.rbcsm63'
-'name': 'Rainbow [?] Simple'
+'scopeName': 'text.rbcsm58'
+'name': 'Rainbow colon Simple'
 'fileTypes': [
-	'rbcsm63'
+	'rbcsm58'
 ]
 'patterns': [
  	{
-		'match': '([^\\?]*\\??)([^\\?]*\\??)([^\\?]*\\??)([^\\?]*\\??)([^\\?]*\\??)([^\\?]*\\??)([^\\?]*\\??)([^\\?]*\\??)([^\\?]*\\??)([^\\?]*\\??)'
+		'match': '([^:]*:?)([^:]*:?)([^:]*:?)([^:]*:?)([^:]*:?)([^:]*:?)([^:]*:?)([^:]*:?)([^:]*:?)([^:]*:?)'
 		'name': 'rainbowline'
 		'captures':
 			'1':

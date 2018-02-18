@@ -1,11 +1,11 @@
-'scopeName': 'text.rbcsm58'
-'name': 'Rainbow [:] Simple'
+'scopeName': 'text.rbcsm62'
+'name': 'Rainbow greater-than Simple'
 'fileTypes': [
-	'rbcsm58'
+	'rbcsm62'
 ]
 'patterns': [
  	{
-		'match': '([^:]*:?)([^:]*:?)([^:]*:?)([^:]*:?)([^:]*:?)([^:]*:?)([^:]*:?)([^:]*:?)([^:]*:?)([^:]*:?)'
+		'match': '([^>]*>?)([^>]*>?)([^>]*>?)([^>]*>?)([^>]*>?)([^>]*>?)([^>]*>?)([^>]*>?)([^>]*>?)([^>]*>?)'
 		'name': 'rainbowline'
 		'captures':
 			'1':
