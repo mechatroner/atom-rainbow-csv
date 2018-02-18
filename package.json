@@ -1,6 +1,6 @@
 {
   "name": "rainbow-csv",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Highlight csv/tsv table files in different rainbow colors",
   "keywords": [
     "csv",
