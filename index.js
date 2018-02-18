@@ -452,6 +452,7 @@ function consumeStatusBar(status_bar) {
 function get_grammar_name(rainbow_delim, policy) {
     var delim_map = new Map();
     delim_map.set('/', 'slash');
+    delim_map.set('\\', 'backslash');
     delim_map.set(' ', 'space');
     delim_map.set('\t', 'tab');
     var delim_name_part = '[' + rainbow_delim + ']';
