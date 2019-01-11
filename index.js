@@ -3,7 +3,6 @@ const os = require('os');
 const fs = require('fs');
 
 var status_bar_tile = null;
-var file_headers_cache = new Map();
 
 var autodetection_dialects = [
     {delim: ',', policy: 'quoted'},
@@ -108,6 +107,15 @@ function get_field_by_line_position(fields, query_pos) {
 }
 
 
+function get_document_header(editor, delim, policy) {
+    if (editor.getLineCount() < 1)
+        return [];
+    let first_line = editor.lineTextForBufferRow(0);
+    var split_result = smart_split(first_line, delim, policy);
+    return split_result[0];
+}
+
+
 function display_position_info(editor, position, delim, policy, ui_column_display) {
     var line_num = position.row;
     var column = position.column;
@@ -117,17 +125,22 @@ function display_position_info(editor, position, delim, policy, ui_column_displa
         return; 
     }
     var line_fields = split_result[0];
-    var field_num = get_field_by_line_position(line_fields, column + 1);
-    if (field_num === null)
+    var col_num = get_field_by_line_position(line_fields, column + 1);
+    if (col_num === null)
         return;
-    var ui_text = 'col# ' + (field_num + 1);
-    var guessed_header = get_document_header_cached(editor, delim, policy);
-    if (guessed_header && line_fields.length == guessed_header.length) {
-        var column_name = guessed_header[field_num];
-        ui_text = ui_text + ', ' + column_name;
+    var ui_text = 'Col #' + (col_num + 1);
+    var header = get_document_header(editor, delim, policy);
+    if (col_num < header.length) {
+        const max_label_len = 50;
+        var column_label = header[col_num].substr(0, max_label_len);
+        if (column_label != header[col_num])
+            column_label = column_label + '...';
+        ui_text += ', Header: "' + column_label + '"';
     }
-
-    ui_column_display.setAttribute('style', 'color:' + color_entries[field_num % color_entries.length][1]);
+    if (line_fields.length != header.length) {
+        ui_text += "; WARN: num of fields in Header differs";
+    }
+    ui_column_display.setAttribute('style', 'color:' + color_entries[col_num % color_entries.length][1]);
     ui_column_display.textContent = ui_text;
 }
 
@@ -211,78 +224,11 @@ function hide_statusbar_tile() {
 }
 
 
-function guess_if_header(potential_header, sampled_records) {
-    // single line - not header
-    if (sampled_records.length < 1)
-        return false;
-
-    // different number of columns - not header
-    var num_fields = potential_header.length;
-    for (var i = 0; i < sampled_records.length; i++) {
-        if (sampled_records[i].length != num_fields)
-            return false;
-    }
-
-    // all sampled lines do not have any letters in a column and potential header does - header
-    var optimistic_name_re = /^[a-zA-Z]{3,}/;
-    var pessimistic_name_re = /[a-zA-Z]/;
-    for (var c = 0; c < num_fields; c++) {
-        if (potential_header[c].match(optimistic_name_re) === null)
-            continue;
-        var all_numbers = true;
-        for (var r = 0; r < sampled_records.length; r++) {
-            if (sampled_records[r][c].match(pessimistic_name_re) !== null) {
-                all_numbers = false;
-                break;
-            }
-        }
-        if (all_numbers)
-            return true;
-    }
-    return false;
-}
-
-
-function guess_document_header(editor, delim, policy) {
-    var sampled_lines = sample_lines(editor)
-    if (sampled_lines.length <= 10)
-        return null;
-    var first_line = sampled_lines[0];
-    sampled_lines.splice(0, 1);
-    var split_result = smart_split(first_line, delim, policy);
-    if (split_result[1])
-        return null;
-    var potential_header = split_result[0];
-    var sampled_records = [];
-    for (var i = 0; i < sampled_lines.length; i++) {
-        split_result = smart_split(sampled_lines[i], delim, policy);
-        if (split_result[1])
-            return null;
-        sampled_records.push(split_result[0]);
-    }
-    if (guess_if_header(potential_header, sampled_records))
-        return potential_header;
-    return null;
-}
-
-
-function get_document_header_cached(editor, delim, policy, invalidate=false) {
-    var file_path = editor.getPath();
-    if (file_headers_cache.has(file_path) && !invalidate) {
-        return file_headers_cache.get(file_path);
-    }
-    var guessed_header = guess_document_header(editor, delim, policy);
-    file_headers_cache.set(file_path, guessed_header);
-    return guessed_header;
-}
-
-
 function show_statusbar_tile(editor, delim, policy) {
     if (editor.hasMultipleCursors())
         return;
     if (!status_bar_tile)
         return;
-    get_document_header_cached(editor, delim, policy, true);
     var ui_column_display = status_bar_tile.getItem();
     if (ui_column_display) {
         var position = editor.getCursorBufferPosition();
