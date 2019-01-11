@@ -10,25 +10,14 @@ var autodetection_dialects = [
     {delim: '\t', policy: 'simple'}
 ];
 
-
-// colors were taken from here: https://sashat.me/2017/01/11/list-of-20-simple-distinct-colors/
-var color_entries = [
-    ['rainbow1', '#E6194B'],
-    ['rainbow2', '#3CB44B'],
-    ['rainbow3', '#FFE119'],
-    ['rainbow4', '#0082C8'],
-    ['rainbow5', '#FABEBE'],
-    ['rainbow6', '#46F0F0'],
-    ['rainbow7', '#F032E6'],
-    ['rainbow8', '#008080'],
-    ['rainbow9', '#F58231'],
-    ['rainbow10', '#FFFFFF']
-];
+// TODO add config subscription to reload colors
 
 function prepare_colors() {
     var css_code = '';
-    for (var i = 0; i < color_entries.length; i++) {
-        css_code += '.syntax--' + color_entries[i][0] + ' { color: ' + color_entries[i][1] + '; }';
+    for (let i = 0; i < 10; i++) {
+        let color_name = 'rainbow' + i;
+        let color_value = atom.config.get('rainbow-csv.' + color_name);
+        css_code += `.syntax--${color_name} { color: ${color_value}; }`;
     }
     css_code += '.syntax--rainbowerror { color: #FFFFFF; background-color: #FF0000; }';
 
@@ -327,7 +316,7 @@ function handle_new_editor(editor) {
 
 
 function enable_statusbar(editor, delim, policy) {
-    cursor_callback = function(event) {
+    let cursor_callback = function(event) {
         if (editor.hasMultipleCursors())
             return;
         if (!status_bar_tile)
@@ -366,8 +355,8 @@ function do_disable_rainbow(editor) {
 
 function activate(state) {
     prepare_colors();
-    var disposable_subscription = atom.workspace.observeTextEditors(handle_new_editor);
-    var disposable_subscription_2 = atom.workspace.onDidChangeActiveTextEditor(process_editor_switch);
+    atom.workspace.observeTextEditors(handle_new_editor);
+    atom.workspace.onDidChangeActiveTextEditor(process_editor_switch);
     atom.commands.add('atom-text-editor', 'rainbow-csv:disable', disable_rainbow);
     atom.commands.add('atom-text-editor', 'rainbow-csv:enable-standard', enable_rainbow_quoted);
     atom.commands.add('atom-text-editor', 'rainbow-csv:enable-simple', enable_rainbow_simple);
@@ -529,7 +518,19 @@ function disable_rainbow() {
 }
 
 
-rainbow_config = {'autodetection': {type: 'boolean', default: true, title: "Table files autodetection", description: 'Enable content-based autodetection for csv and tsv files that do not have "*.csv" or "*.tsv" extensions'}};
+let rainbow_config = {
+    'autodetection': {type: 'boolean', default: true, title: "Table files autodetection", description: 'Enable content-based autodetection for csv and tsv files that do not have "*.csv" or "*.tsv" extensions'},
+    'rainbow1': {type: 'color', default: '#E6194B', title: "Rainbow Color 1"},
+    'rainbow2': {type: 'color', default: '#3CB44B', title: "Rainbow Color 2"},
+    'rainbow3': {type: 'color', default: '#FFE119', title: "Rainbow Color 3"},
+    'rainbow4': {type: 'color', default: '#0082C8', title: "Rainbow Color 4"},
+    'rainbow5': {type: 'color', default: '#FABEBE', title: "Rainbow Color 5"},
+    'rainbow6': {type: 'color', default: '#46F0F0', title: "Rainbow Color 6"},
+    'rainbow7': {type: 'color', default: '#F032E6', title: "Rainbow Color 7"},
+    'rainbow8': {type: 'color', default: '#008080', title: "Rainbow Color 8"},
+    'rainbow9': {type: 'color', default: '#F58231', title: "Rainbow Color 9"},
+    'rainbow10': {type: 'color', default: '#FFFFFF', title: "Rainbow Color 10"}
+};
 
 
 exports.config = rainbow_config;
