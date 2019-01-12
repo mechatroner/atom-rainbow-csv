@@ -2,26 +2,42 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 
+
 var status_bar_tile = null;
 
-var autodetection_dialects = [
+var rainbow_colors = [];
+
+const autodetection_dialects = [
     {delim: ',', policy: 'quoted'},
     {delim: ';', policy: 'quoted'},
     {delim: '\t', policy: 'simple'}
 ];
 
-// TODO add config subscription to reload colors
+
+function remove_element(id) {
+    let elem = document.getElementById(id);
+    if (elem) {
+        elem.parentNode.removeChild(elem);
+    }
+}
+
 
 function prepare_colors() {
     var css_code = '';
+    rainbow_colors = [];
     for (let i = 0; i < 10; i++) {
-        let color_name = 'rainbow' + i;
+        let color_name = 'rainbow' + (i + 1);
         let color_value = atom.config.get('rainbow-csv.' + color_name);
         css_code += `.syntax--${color_name} { color: ${color_value}; }`;
+        rainbow_colors.push(color_value);
     }
     css_code += '.syntax--rainbowerror { color: #FFFFFF; background-color: #FF0000; }';
 
+    const style_node_id = 'rainbow_colors_hack_css';
+
+    remove_element(style_node_id);
     var patch_style_node = document.createElement('style');
+    patch_style_node.id = style_node_id;
     patch_style_node.type = 'text/css';
     patch_style_node.innerHTML = css_code;
     document.getElementsByTagName('head')[0].appendChild(patch_style_node);
@@ -129,7 +145,7 @@ function display_position_info(editor, position, delim, policy, ui_column_displa
     if (line_fields.length != header.length) {
         ui_text += "; WARN: num of fields in Header differs";
     }
-    ui_column_display.setAttribute('style', 'color:' + color_entries[col_num % color_entries.length][1]);
+    ui_column_display.setAttribute('style', 'color:' + rainbow_colors[col_num % rainbow_colors.length]);
     ui_column_display.textContent = ui_text;
 }
 
@@ -353,8 +369,14 @@ function do_disable_rainbow(editor) {
 }
 
 
-function activate(state) {
+function handle_color_customization(_config_event) {
     prepare_colors();
+}
+
+
+function activate(_state) {
+    prepare_colors();
+    atom.config.onDidChange('rainbow-csv', handle_color_customization);
     atom.workspace.observeTextEditors(handle_new_editor);
     atom.workspace.onDidChangeActiveTextEditor(process_editor_switch);
     atom.commands.add('atom-text-editor', 'rainbow-csv:disable', disable_rainbow);
