@@ -140,7 +140,7 @@ function display_position_info(editor, position, delim, policy, ui_column_displa
         var column_label = header[col_num].substr(0, max_label_len);
         if (column_label != header[col_num])
             column_label = column_label + '...';
-        ui_text += ', Header: "' + column_label + '"';
+        ui_text += ': "' + column_label + '"';
     }
     if (line_fields.length != header.length) {
         ui_text += "; WARN: num of fields in Header differs";
