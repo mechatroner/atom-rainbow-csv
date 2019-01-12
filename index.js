@@ -143,7 +143,7 @@ function display_position_info(editor, position, delim, policy, ui_column_displa
         ui_text += ': "' + column_label + '"';
     }
     if (line_fields.length != header.length) {
-        ui_text += "; WARN: num of fields in Header differs";
+        ui_text += "; WARN: inconsistent with Header line";
     }
     ui_column_display.setAttribute('style', 'color:' + rainbow_colors[col_num % rainbow_colors.length]);
     ui_column_display.textContent = ui_text;
