@@ -326,7 +326,14 @@ function handle_new_editor(editor) {
         if (detected_dialect) {
             do_set_rainbow_grammar(editor, detected_dialect.delim, detected_dialect.policy);
         }
-        return;
+    }
+    if (file_path) {
+        if (file_path.toLowerCase().endsWith('.csv')) {
+            do_set_rainbow_grammar(editor, ',', 'quoted');
+        }
+        if (file_path.toLowerCase().endsWith('.tsv')) {
+            do_set_rainbow_grammar(editor, '\t', 'simple');
+        }
     }
 }
 
