@@ -553,6 +553,8 @@ function start_rbql() {
     // FIXME write impl
     // What to use: addBottomPanel vs addFooterPanel vs addModelPanel vs addHeaderPanel
     var rbql_panel = document.createElement('div');
+    //rbql_panel.setAttribute('class', 'atom-workspace');
+    rbql_panel.setAttribute('style', 'font-size: var(--editor-font-size); font-family: var(--editor-font-family); line-height: var(--editor-line-height)');
     rbql_panel.textContent = 'Hello RBQL!';
     atom.workspace.addBottomPanel({'item': rbql_panel});
 }
