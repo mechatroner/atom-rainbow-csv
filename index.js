@@ -45,6 +45,7 @@ function prepare_colors() {
 
 
 function split_quoted_str(src, dlm, preserve_quotes=false) {
+    // FIXME use function from rainbow_utils
     if (src.indexOf('"') == -1)
         return [src.split(dlm), false];
     var result = [];
@@ -552,11 +553,35 @@ function disable_rainbow() {
 function start_rbql() {
     // FIXME write impl
     // What to use: addBottomPanel vs addFooterPanel vs addModelPanel vs addHeaderPanel
-    var rbql_panel = document.createElement('div');
-    //rbql_panel.setAttribute('class', 'atom-workspace');
-    rbql_panel.setAttribute('style', 'font-size: var(--editor-font-size); font-family: var(--editor-font-family); line-height: var(--editor-line-height)');
-    rbql_panel.textContent = 'Hello RBQL!';
-    atom.workspace.addBottomPanel({'item': rbql_panel});
+    var editor = atom.workspace.getActiveTextEditor();
+    let delim = '';
+    let policy = 'monocolumn';
+    var rainbow_scope = get_rainbow_scope(editor.getGrammar());
+    if (rainbow_scope) {
+        delim = rainbow_scope.delim;
+        policy = rainbow_scope.policy;
+    }
+    let sampled_lines = sample_lines(editor);
+    if (!sampled_lines || !sampled_lines.length)
+        return;
+    let aligning_line = sampled_lines.length > 1 ? sampled_lines[1] : sampled_lines[0];
+    let fields = smart_split(aligning_line, delim, policy, true)[0];
+
+    let rbql_panel_node = document.createElement('div');
+    let column_names_node = document.createElement('div');
+
+    for (let i = 0; i < fields.length; i++) {
+        let color_name = 'rainbow' + (i + 1);
+        let span_node = document.createElement('span');
+        span_node.setAttribute('class', 'syntax--' + color_name);
+        span_node.textContent = 'a' + (i + 1) + ' ';
+        column_names_node.appendChild(span_node);
+    }
+    // FIXME test with very long lines that don't fit the screen.
+    rbql_panel_node.appendChild(column_names_node);
+    rbql_panel_node.setAttribute('style', 'font-size: var(--editor-font-size); font-family: var(--editor-font-family); line-height: var(--editor-line-height)');
+    //rbql_panel_node.textContent = 'Hello RBQL!';
+    atom.workspace.addBottomPanel({'item': rbql_panel_node});
 }
 
 
