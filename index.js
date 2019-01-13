@@ -553,6 +553,8 @@ function disable_rainbow() {
 function start_rbql() {
     // FIXME write impl
     // What to use: addBottomPanel vs addFooterPanel vs addModelPanel vs addHeaderPanel
+    // FIXME hide panel at the end
+    // FIXME Esc should cancel the query
     var editor = atom.workspace.getActiveTextEditor();
     let delim = '';
     let policy = 'monocolumn';
@@ -569,7 +571,14 @@ function start_rbql() {
 
     let rbql_panel_node = document.createElement('div');
     let column_names_node = document.createElement('div');
+    let input_node = document.createElement('input');
+    input_node.setAttribute('type', 'text');
+    input_node.setAttribute('placeholder', 'select ... where ... order by ... limit ... ');
+    input_node.setAttribute('style', 'width: 70%; color: black');
+    input_node.setAttribute('class', 'native-key-bindings'); // See https://discuss.atom.io/t/input-text-element-cant-backspace/4981/5
 
+    // FIXME test with very long lines that don't fit the screen.
+    // FIXME test monocolumn
     for (let i = 0; i < fields.length; i++) {
         let color_name = 'rainbow' + (i + 1);
         let span_node = document.createElement('span');
@@ -577,8 +586,8 @@ function start_rbql() {
         span_node.textContent = 'a' + (i + 1) + ' ';
         column_names_node.appendChild(span_node);
     }
-    // FIXME test with very long lines that don't fit the screen.
     rbql_panel_node.appendChild(column_names_node);
+    rbql_panel_node.appendChild(input_node);
     rbql_panel_node.setAttribute('style', 'font-size: var(--editor-font-size); font-family: var(--editor-font-family); line-height: var(--editor-line-height)');
     //rbql_panel_node.textContent = 'Hello RBQL!';
     atom.workspace.addBottomPanel({'item': rbql_panel_node});
