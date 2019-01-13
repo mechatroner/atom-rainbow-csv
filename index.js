@@ -389,10 +389,12 @@ function activate(_state) {
     atom.commands.add('atom-text-editor', 'rainbow-csv:disable', disable_rainbow);
     atom.commands.add('atom-text-editor', 'rainbow-csv:enable-standard', enable_rainbow_quoted);
     atom.commands.add('atom-text-editor', 'rainbow-csv:enable-simple', enable_rainbow_simple);
+    atom.commands.add('atom-text-editor', 'rainbow-csv:rbql', start_rbql);
     var submenu_entries = [];
     submenu_entries.push({label: 'Disable', command: 'rainbow-csv:disable'});
     submenu_entries.push({label: 'Set as separator: Standard dialect', command: 'rainbow-csv:enable-standard'});
     submenu_entries.push({label: 'Set as separator: Simple dialect', command: 'rainbow-csv:enable-simple'});
+    submenu_entries.push({label: 'Run SQL-like RBQL query', command: 'rainbow-csv:rbql'});
     var context_items = {'atom-text-editor': [{label: 'Rainbow CSV', submenu: submenu_entries}]};
     atom.contextMenu.add(context_items);
 }
@@ -406,6 +408,7 @@ function deactivate() {
 
 
 function consumeStatusBar(status_bar) {
+    // FIXME maybe I can create a button Element with onClick property()
     var ui_column_display = document.createElement('div');
     ui_column_display.textContent = '';
     ui_column_display.setAttribute('class', 'inline-block');
@@ -544,6 +547,14 @@ function disable_rainbow() {
     if (get_rainbow_scope(editor.getGrammar())) {
         do_disable_rainbow(editor);
     }
+}
+
+function start_rbql() {
+    // FIXME write impl
+    // What to use: addBottomPanel vs addFooterPanel vs addModelPanel vs addHeaderPanel
+    var rbql_panel = document.createElement('div');
+    rbql_panel.textContent = 'Hello RBQL!';
+    atom.workspace.addBottomPanel({'item': rbql_panel});
 }
 
 

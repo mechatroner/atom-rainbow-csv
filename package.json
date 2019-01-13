@@ -1,10 +1,11 @@
 {
   "name": "rainbow-csv",
   "version": "0.2.2",
-  "description": "Highlight csv/tsv table files in different rainbow colors",
+  "description": "Highlight CSV and TSV files in different colors, Run SQL-like queries",
   "keywords": [
-    "csv",
-    "tsv",
+    "CSV",
+    "TSV",
+    "SQL",
     "highlight"
   ],
   "repository": "https://github.com/mechatroner/atom-rainbow-csv",
