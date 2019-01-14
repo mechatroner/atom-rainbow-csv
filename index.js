@@ -550,6 +550,7 @@ function disable_rainbow() {
     }
 }
 
+
 function start_rbql() {
     // FIXME write impl
     // What to use: addBottomPanel vs addFooterPanel vs addModelPanel vs addHeaderPanel
@@ -572,6 +573,10 @@ function start_rbql() {
     let rbql_panel_node = document.createElement('div');
     let column_names_node = document.createElement('div');
     let input_node = document.createElement('input');
+    let run_button = document.createElement('button');
+    let cancel_button = document.createElement('button');
+    run_button.textContent = 'Run';
+    cancel_button.textContent = 'Cancel';
     input_node.setAttribute('type', 'text');
     input_node.setAttribute('placeholder', 'select ... where ... order by ... limit ... ');
     input_node.setAttribute('style', 'width: 70%; color: black');
@@ -588,9 +593,12 @@ function start_rbql() {
     }
     rbql_panel_node.appendChild(column_names_node);
     rbql_panel_node.appendChild(input_node);
+    rbql_panel_node.appendChild(run_button);
+    rbql_panel_node.appendChild(cancel_button);
     rbql_panel_node.setAttribute('style', 'font-size: var(--editor-font-size); font-family: var(--editor-font-family); line-height: var(--editor-line-height)');
     //rbql_panel_node.textContent = 'Hello RBQL!';
-    atom.workspace.addBottomPanel({'item': rbql_panel_node});
+    let rbql_panel = atom.workspace.addBottomPanel({'item': rbql_panel_node});
+    cancel_button.addEventListener("click", () => { rbql_panel.destroy(); });
 }
 
 
