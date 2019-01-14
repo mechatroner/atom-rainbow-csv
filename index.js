@@ -4,8 +4,9 @@ const fs = require('fs');
 
 
 var status_bar_tile = null;
-
+var last_rbql_queries = new Map();
 var rainbow_colors = [];
+
 
 const autodetection_dialects = [
     {delim: ',', policy: 'quoted'},
@@ -552,10 +553,7 @@ function disable_rainbow() {
 
 
 function start_rbql() {
-    // FIXME write impl
-    // What to use: addBottomPanel vs addFooterPanel vs addModelPanel vs addHeaderPanel
     // FIXME hide panel at the end
-    // FIXME Esc should cancel the query
     var editor = atom.workspace.getActiveTextEditor();
     let delim = '';
     let policy = 'monocolumn';
@@ -564,6 +562,7 @@ function start_rbql() {
         delim = rainbow_scope.delim;
         policy = rainbow_scope.policy;
     }
+    var file_path = editor.getPath();
     let sampled_lines = sample_lines(editor);
     if (!sampled_lines || !sampled_lines.length)
         return;
@@ -600,10 +599,15 @@ function start_rbql() {
     //rbql_panel_node.textContent = 'Hello RBQL!';
     let rbql_panel = atom.workspace.addBottomPanel({'item': rbql_panel_node});
     cancel_button.addEventListener("click", () => { rbql_panel.destroy(); });
+    if (last_rbql_queries.has(file_path)) {
+        input_node.value = last_rbql_queries.get(file_path);
+    }
     input_node.focus();
     input_node.addEventListener("keyup", function(event) {
         event.preventDefault();
         if (event.keyCode == 13) {
+            let rbql_query = input_node.value;
+            last_rbql_queries.set(file_path, rbql_query);
             // FIXME
             //start_rbql(chain_index);
         }
