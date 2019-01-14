@@ -584,6 +584,7 @@ function start_rbql() {
 
     // FIXME test with very long lines that don't fit the screen.
     // FIXME test monocolumn
+    // FIXME restore previous query for this file
     for (let i = 0; i < fields.length; i++) {
         let color_name = 'rainbow' + (i + 1);
         let span_node = document.createElement('span');
@@ -599,6 +600,17 @@ function start_rbql() {
     //rbql_panel_node.textContent = 'Hello RBQL!';
     let rbql_panel = atom.workspace.addBottomPanel({'item': rbql_panel_node});
     cancel_button.addEventListener("click", () => { rbql_panel.destroy(); });
+    input_node.focus();
+    input_node.addEventListener("keyup", function(event) {
+        event.preventDefault();
+        if (event.keyCode == 13) {
+            // FIXME
+            //start_rbql(chain_index);
+        }
+        if (event.keyCode == 27) {
+            rbql_panel.destroy();
+        }
+    });
 }
 
 
