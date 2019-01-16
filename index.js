@@ -575,14 +575,14 @@ function handle_command_result(error_code, stdout, stderr, report_handler) {
     }
     report_handler(report);
     if (report.hasOwnProperty('error_type') || report.hasOwnProperty('error_details')) {
-        return; // Just exit: error would be shown in the preview window.
+        return;
     }
     var warnings = [];
     if (report.hasOwnProperty('warnings')) {
         warnings = report['warnings'];
     }
     for (let i = 0; i < warnings.length; i++) {
-        atom.notifications.addWarning(warnings[i]);
+        atom.notifications.addWarning(warnings[i], {'dismissable': true});
     }
     if (!report.hasOwnProperty('result_path')) {
         atom.notifications.addError('Something went terribly wrong: RBQL JSON report is missing result_path attribute');
@@ -593,7 +593,6 @@ function handle_command_result(error_code, stdout, stderr, report_handler) {
     // FIXME do not adutodetect the result, set language explicitly
     //autodetection_stoplist.add(dst_table_path);
     atom.workspace.open(dst_table_path);
-    //vscode.workspace.openTextDocument(dst_table_path).then(doc => handle_rbql_result_file(doc, warnings));
 }
 
 
@@ -627,7 +626,6 @@ function run_command(cmd, args, close_and_error_guard, callback_func) {
 
 function run_rbql_query(active_file_path, delim, policy, backend_language, rbql_query, report_handler) {
     last_rbql_queries.set(active_file_path, rbql_query);
-    last_rbql_queries.set(active_file_path, {'query': rbql_query});
     var cmd = 'python';
     const test_marker = 'test ';
     let close_and_error_guard = {'process_reported': false};
@@ -651,7 +649,6 @@ function run_rbql_query(active_file_path, delim, policy, backend_language, rbql_
 
 
 function start_rbql() {
-    // FIXME hide panel at the end
     let editor = atom.workspace.getActiveTextEditor();
     let delim = '';
     let policy = 'monocolumn';
