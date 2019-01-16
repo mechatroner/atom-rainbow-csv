@@ -1,6 +1,7 @@
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+const child_process = require('child_process');
 
 
 var status_bar_tile = null;
@@ -552,17 +553,115 @@ function disable_rainbow() {
 }
 
 
+function handle_command_result(error_code, stdout, stderr, report_handler) {
+    console.log('error_code: ' + String(error_code));
+    console.log('stdout: ' + String(stdout));
+    console.log('stderr: ' + String(stderr));
+
+    var report = null;
+    var json_report = stdout;
+    if (error_code || !json_report.length || stderr.length) {
+        var error_details = "Unknown Integration Error";
+        if (stderr.length) {
+            error_details += '\nstderr: ' + stderr;
+        }
+        report = {"error_type": "Integration", "error_details": error_details};
+    } else {
+        try {
+            report = JSON.parse(json_report);
+        } catch (e) {
+            report = {"error_type": "Integration", "error_details": "Report JSON parsing error"};
+        }
+    }
+    report_handler(report);
+    if (report.hasOwnProperty('error_type') || report.hasOwnProperty('error_details')) {
+        return; // Just exit: error would be shown in the preview window.
+    }
+    var warnings = [];
+    if (report.hasOwnProperty('warnings')) {
+        warnings = report['warnings'];
+    }
+    for (let i = 0; i < warnings.length; i++) {
+        atom.notifications.addWarning(warnings[i]);
+    }
+    if (!report.hasOwnProperty('result_path')) {
+        atom.notifications.addError('Something went terribly wrong: RBQL JSON report is missing result_path attribute');
+        return;
+    }
+    var dst_table_path = report['result_path'];
+    console.log('dst_table_path: ' + dst_table_path);
+    // FIXME do not adutodetect the result, set language explicitly
+    //autodetection_stoplist.add(dst_table_path);
+    atom.workspace.open(dst_table_path);
+    //vscode.workspace.openTextDocument(dst_table_path).then(doc => handle_rbql_result_file(doc, warnings));
+}
+
+
+function run_command(cmd, args, close_and_error_guard, callback_func) {
+    var command = child_process.spawn(cmd, args, {'windowsHide': true});
+    var stdout = '';
+    var stderr = '';
+    command.stdout.on('data', function(data) {
+        stdout += data.toString();
+    });
+    command.stderr.on('data', function(data) {
+        stderr += data.toString();
+    });
+    command.on('close', function(code) {
+        console.log('child_process got "close" event');
+        if (!close_and_error_guard['process_reported']) {
+            close_and_error_guard['process_reported'] = true;
+            callback_func(code, stdout, stderr);
+        }
+    });
+    command.on('error', function(error) {
+        console.log('child_process got "error" event');
+        var error_msg = error ? error.name + ': ' + error.message : '';
+        if (!close_and_error_guard['process_reported']) {
+            close_and_error_guard['process_reported'] = true;
+            callback_func(1, '', 'Something went wrong. Make sure you have python installed and added to PATH variable in your OS. Or you can use it with JavaScript instead - it should work out of the box\nDetails:\n' + error_msg);
+        }
+    });
+}
+
+
+function run_rbql_query(active_file_path, delim, policy, backend_language, rbql_query, report_handler) {
+    last_rbql_queries.set(active_file_path, rbql_query);
+    last_rbql_queries.set(active_file_path, {'query': rbql_query});
+    var cmd = 'python';
+    const test_marker = 'test ';
+    let close_and_error_guard = {'process_reported': false};
+    if (rbql_query.startsWith(test_marker)) {
+        if (rbql_query.indexOf('nopython') != -1) {
+            cmd = 'nopython';
+        }
+        let mock_script_path = path.join(atom.packages.resolvePackagePath('rainbow-csv'), 'rbql mock', 'rbql_mock.py');
+        let args = [mock_script_path, rbql_query];
+        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
+        return;
+    }
+    if (backend_language == 'JavaScript') {
+        run_rbql_native(active_file_path, rbql_query, delim, policy, report_handler);
+    } else {
+        let rbql_exec_path = path.join(atom.packages.resolvePackagePath('rainbow-csv'), 'rbql_core', 'vscode_rbql.py');
+        let args = [rbql_exec_path, delim, policy, rbql_query, active_file_path];
+        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
+    }
+}
+
+
 function start_rbql() {
     // FIXME hide panel at the end
-    var editor = atom.workspace.getActiveTextEditor();
+    let editor = atom.workspace.getActiveTextEditor();
     let delim = '';
     let policy = 'monocolumn';
-    var rainbow_scope = get_rainbow_scope(editor.getGrammar());
+    let rainbow_scope = get_rainbow_scope(editor.getGrammar());
     if (rainbow_scope) {
         delim = rainbow_scope.delim;
         policy = rainbow_scope.policy;
     }
-    var file_path = editor.getPath();
+    let backend_language = atom.config.get('rainbow-csv.rbql_backend');
+    let file_path = editor.getPath();
     let sampled_lines = sample_lines(editor);
     if (!sampled_lines || !sampled_lines.length)
         return;
@@ -583,7 +682,8 @@ function start_rbql() {
 
     // FIXME test with very long lines that don't fit the screen.
     // FIXME test monocolumn
-    // FIXME restore previous query for this file
+    // FIXME add help button/link
+    // FIXME test rbql warnings and rbql errors
     for (let i = 0; i < fields.length; i++) {
         let color_name = 'rainbow' + (i + 1);
         let span_node = document.createElement('span');
@@ -596,20 +696,28 @@ function start_rbql() {
     rbql_panel_node.appendChild(run_button);
     rbql_panel_node.appendChild(cancel_button);
     rbql_panel_node.setAttribute('style', 'font-size: var(--editor-font-size); font-family: var(--editor-font-family); line-height: var(--editor-line-height)');
-    //rbql_panel_node.textContent = 'Hello RBQL!';
     let rbql_panel = atom.workspace.addBottomPanel({'item': rbql_panel_node});
-    cancel_button.addEventListener("click", () => { rbql_panel.destroy(); });
     if (last_rbql_queries.has(file_path)) {
         input_node.value = last_rbql_queries.get(file_path);
     }
     input_node.focus();
+
+    var report_handler = function(report) {
+        if (!report || report['error_type'] || report['error_details'])
+            return;
+        rbql_panel.destroy(); // Success. Removing RBQL UI
+    }
+
+    cancel_button.addEventListener("click", () => { rbql_panel.destroy(); });
+    run_button.addEventListener("click", () => { 
+        let rbql_query = input_node.value;
+        run_rbql_query(file_path, delim, policy, backend_language, rbql_query, report_handler); 
+    });
     input_node.addEventListener("keyup", function(event) {
         event.preventDefault();
         if (event.keyCode == 13) {
             let rbql_query = input_node.value;
-            last_rbql_queries.set(file_path, rbql_query);
-            // FIXME
-            //start_rbql(chain_index);
+            run_rbql_query(file_path, delim, policy, backend_language, rbql_query, report_handler);
         }
         if (event.keyCode == 27) {
             rbql_panel.destroy();
@@ -620,6 +728,7 @@ function start_rbql() {
 
 let rainbow_config = {
     'autodetection': {type: 'boolean', default: true, title: "Table files autodetection", description: 'Enable content-based autodetection for csv and tsv files that do not have "*.csv" or "*.tsv" extensions'},
+    'rbql_backend': {type: 'string', default: 'JavaScript', enum: ['JavaScript', 'Python'], title: "RBQL backend language", description: 'RBQL backend language. JavaScript works out of the box. To use Python you need python interpreter installed in your OS.'},
     'rainbow1': {type: 'color', default: '#E6194B', title: "Rainbow Color 1"},
     'rainbow2': {type: 'color', default: '#3CB44B', title: "Rainbow Color 2"},
     'rainbow3': {type: 'color', default: '#FFE119', title: "Rainbow Color 3"},
