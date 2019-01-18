@@ -3,6 +3,10 @@ const os = require('os');
 const fs = require('fs');
 const child_process = require('child_process');
 
+const rbql = require('./rbql_core/rbql-js/rbql');
+
+// FIXME update README.md
+
 
 var status_bar_tile = null;
 var last_rbql_queries = new Map();
@@ -621,6 +625,51 @@ function run_command(cmd, args, close_and_error_guard, callback_func) {
             callback_func(1, '', 'Something went wrong. Make sure you have python installed and added to PATH variable in your OS. Or you can use it with JavaScript instead - it should work out of the box\nDetails:\n' + error_msg);
         }
     });
+}
+
+
+function get_dst_table_name(input_path, output_delim) {
+    var table_name = path.basename(input_path);
+    var orig_extension = path.extname(table_name);
+    var delim_ext_map = {'\t': '.tsv', ',': '.csv'};
+    var dst_extension = '.txt';
+    if (delim_ext_map.hasOwnProperty(output_delim)) {
+        dst_extension = delim_ext_map[output_delim];
+    } else if (orig_extension.length > 1) {
+        dst_extension = orig_extension;
+    }
+    return table_name + dst_extension;
+}
+
+
+function run_rbql_native(input_path, query, delim, policy, report_handler) {
+    var rbql_lines = [query];
+    var tmp_dir = os.tmpdir();
+    var script_filename = 'rbconvert_' + String(Math.random()).replace('.', '_') + '.js';
+    var tmp_worker_module_path = path.join(tmp_dir, script_filename);
+    var output_delim = delim;
+    var output_policy = policy;
+    var csv_encoding = rbql.default_csv_encoding;
+
+    var output_file_name = get_dst_table_name(input_path, output_delim);
+    var output_path = path.join(tmp_dir, output_file_name);
+    var worker_module = null;
+
+    try {
+        rbql.parse_to_js(input_path, output_path, rbql_lines, tmp_worker_module_path, delim, policy, output_delim, output_policy, csv_encoding);
+        worker_module = require(tmp_worker_module_path);
+    } catch (e) {
+        let report = {'error_type': 'RBQL_parsing', 'error_details': get_error_message(e)};
+        report_handler(report);
+        return;
+    }
+    var handle_success = function(warnings) {
+        handle_worker_success(output_path, warnings, tmp_worker_module_path, report_handler);
+    }
+    var handle_failure = function(error_msg) {
+        handle_worker_failure(error_msg, tmp_worker_module_path, report_handler);
+    }
+    worker_module.run_on_node(handle_success, handle_failure);
 }
 
 
