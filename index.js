@@ -564,7 +564,7 @@ function handle_rbql_report(report) {
     }
     if (report.hasOwnProperty('error_type') || report.hasOwnProperty('error_details')) {
         let error_type = report['error type'] || 'Error';
-        let error_details = report.hasOwnProperty('error_details') || 'Unknown Error';
+        let error_details = report['error_details'] || 'Unknown Error';
         atom.notifications.addError(`${error_type}: ${error_details}`, {'dismissable': true});
         return;
     }
@@ -774,7 +774,6 @@ function start_rbql() {
     // FIXME test with very long lines that don't fit the screen.
     // FIXME test monocolumn
     // FIXME add help button/link
-    // FIXME test rbql warnings and rbql errors
     for (let i = 0; i < fields.length; i++) {
         let color_name = 'rainbow' + (i + 1);
         let span_node = document.createElement('span');
