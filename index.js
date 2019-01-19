@@ -703,16 +703,21 @@ function start_rbql() {
     let input_node = document.createElement('input');
     let run_button = document.createElement('button');
     let cancel_button = document.createElement('button');
+    let help_link = document.createElement('a');
+
+    help_link.textContent = 'Help';
     run_button.textContent = 'Run';
     cancel_button.textContent = 'Cancel';
+
+    help_link.setAttribute('href', 'https://github.com/mechatroner/RBQL#rbql-rainbow-query-language-description');
+    cancel_button.setAttribute('style', 'margin-right: 20px');
     input_node.setAttribute('type', 'text');
-    input_node.setAttribute('placeholder', 'select ... where ... order by ... limit ... ');
+    input_node.setAttribute('placeholder', 'select a1, a2 where a2 != "foobar" order by a1 limit 20');
     input_node.setAttribute('style', 'width: 70%; color: black');
     input_node.setAttribute('class', 'native-key-bindings'); // See https://discuss.atom.io/t/input-text-element-cant-backspace/4981/5
 
     // FIXME test with very long lines that don't fit the screen.
     // FIXME test monocolumn
-    // FIXME add help button/link
     for (let i = 0; i < fields.length; i++) {
         let color_name = 'rainbow' + (i + 1);
         let span_node = document.createElement('span');
@@ -724,6 +729,7 @@ function start_rbql() {
     rbql_panel_node.appendChild(input_node);
     rbql_panel_node.appendChild(run_button);
     rbql_panel_node.appendChild(cancel_button);
+    rbql_panel_node.appendChild(help_link);
     rbql_panel_node.setAttribute('style', 'font-size: var(--editor-font-size); font-family: var(--editor-font-family); line-height: var(--editor-line-height)');
     let rbql_panel = atom.workspace.addBottomPanel({'item': rbql_panel_node});
     if (last_rbql_queries.has(file_path)) {
