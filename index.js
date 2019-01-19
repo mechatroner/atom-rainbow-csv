@@ -4,6 +4,7 @@ const fs = require('fs');
 const child_process = require('child_process');
 
 const rbql = require('./rbql_core/rbql-js/rbql');
+const rainbow_utils = require('./rainbow_utils');
 
 // FIXME update README.md
 
@@ -50,80 +51,11 @@ function prepare_colors() {
 }
 
 
-function split_quoted_str(src, dlm, preserve_quotes=false) {
-    // FIXME use function from rainbow_utils
-    if (src.indexOf('"') == -1)
-        return [src.split(dlm), false];
-    var result = [];
-    var cidx = 0;
-    while (cidx < src.length) {
-        if (src.charAt(cidx) === '"') {
-            var uidx = cidx + 1;
-            while (true) {
-                uidx = src.indexOf('"', uidx);
-                if (uidx == -1) {
-                    result.push(src.substring(cidx));
-                    return [result, true];
-                } else if (uidx + 1 == src.length || src.charAt(uidx + 1) == dlm) {
-                    if (preserve_quotes) {
-                        result.push(src.substring(cidx, uidx + 1));
-                    } else {
-                        result.push(src.substring(cidx + 1, uidx).replace(/""/g, '"'));
-                    }
-                    cidx = uidx + 2;
-                    break;
-                } else if (src.charAt(uidx + 1) == '"') {
-                    uidx += 2; 
-                    continue;
-                } else {
-                    result.push(src.substring(cidx));
-                    return [result, true];
-                }
-            }
-        } else {
-            var uidx = src.indexOf(dlm, cidx);
-            if (uidx == -1)
-                uidx = src.length;
-            var field = src.substring(cidx, uidx);
-            if (field.indexOf('"') != -1) {
-                result.push(src.substring(cidx));
-                return [result, true];
-            }
-            result.push(field);
-            cidx = uidx + 1;
-        }
-    }
-    if (src.charAt(src.length - 1) == dlm)
-        result.push('');
-    return [result, false];
-}
-
-
-function smart_split(src, dlm, policy, preserve_quotes=false) {
-    if (policy === 'simple')
-        return [src.split(dlm), false];
-    return split_quoted_str(src, dlm, preserve_quotes);
-}
-
-
-function get_field_by_line_position(fields, query_pos) {
-    if (!fields.length)
-        return null;
-    var col_num = 0;
-    var cpos = fields[col_num].length + 1;
-    while (query_pos > cpos && col_num + 1 < fields.length) {
-        col_num += 1;
-        cpos = cpos + fields[col_num].length + 1;
-    }
-    return col_num;
-}
-
-
 function get_document_header(editor, delim, policy) {
     if (editor.getLineCount() < 1)
         return [];
     let first_line = editor.lineTextForBufferRow(0);
-    var split_result = smart_split(first_line, delim, policy);
+    var split_result = rainbow_utils.smart_split(first_line, delim, policy, false);
     return split_result[0];
 }
 
@@ -132,12 +64,12 @@ function display_position_info(editor, position, delim, policy, ui_column_displa
     var line_num = position.row;
     var column = position.column;
     var line_text = editor.lineTextForBufferRow(line_num);
-    var split_result = smart_split(line_text, delim, policy, true);
+    var split_result = rainbow_utils.smart_split(line_text, delim, policy, true);
     if (split_result[1]) {
         return; 
     }
     var line_fields = split_result[0];
-    var col_num = get_field_by_line_position(line_fields, column + 1);
+    var col_num = rainbow_utils.get_field_by_line_position(line_fields, column + 1);
     if (col_num === null)
         return;
     var ui_text = 'Col #' + (col_num + 1);
@@ -173,14 +105,14 @@ function get_rainbow_scope(grammar) {
 function is_delimited_table(sampled_lines, delim, policy) {
     if (sampled_lines.length < 2)
         return false;
-    var split_result = smart_split(sampled_lines[0], delim, policy);
+    var split_result = rainbow_utils.smart_split(sampled_lines[0], delim, policy, false);
     if (split_result[1])
         return false;
     var num_fields = split_result[0].length;
     if (num_fields < 2)
         return false;
     for (var i = 1; i < sampled_lines.length; i++) {
-        split_result = smart_split(sampled_lines[i], delim, policy);
+        split_result = rainbow_utils.smart_split(sampled_lines[i], delim, policy, false);
         if (split_result[1])
             return false;
         if (split_result[0].length != num_fields)
@@ -757,7 +689,7 @@ function start_rbql() {
     if (!sampled_lines || !sampled_lines.length)
         return;
     let aligning_line = sampled_lines.length > 1 ? sampled_lines[1] : sampled_lines[0];
-    let fields = smart_split(aligning_line, delim, policy, true)[0];
+    let fields = rainbow_utils.smart_split(aligning_line, delim, policy, true)[0];
 
     let rbql_panel_node = document.createElement('div');
     let column_names_node = document.createElement('div');
