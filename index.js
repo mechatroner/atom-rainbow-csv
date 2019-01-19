@@ -12,6 +12,7 @@ const rainbow_utils = require('./rainbow_utils');
 var status_bar_tile = null;
 var last_rbql_queries = new Map();
 var rainbow_colors = [];
+var autodetection_stoplist = new Set();
 
 
 const autodetection_dialects = [
@@ -218,7 +219,7 @@ function try_get_file_record(file_path) {
 function do_set_rainbow_grammar(editor, delim, policy) {
     var grammar = find_suitable_grammar(delim, policy);
     if (!grammar) {
-        atom.notifications.addError('Rainbow grammar was not found');
+        console.error('Rainbow grammar was not found');
         return;
     }
     var old_grammar = editor.getGrammar();
@@ -243,6 +244,9 @@ function is_plain_text_grammar(grammar) {
 
 function handle_new_editor(editor) {
     var file_path = editor.getPath();
+    if (autodetection_stoplist.has(file_path)) {
+        return;
+    }
     var file_record = try_get_file_record(file_path);
     if (file_record && file_record.length >= 3) {
         var delim = file_record[1];
@@ -489,7 +493,7 @@ function disable_rainbow() {
 }
 
 
-function handle_rbql_report(report) {
+function handle_rbql_report(report, delim, policy) {
     if (!report) {
         console.error('Empty rbql report');
         return;
@@ -513,9 +517,12 @@ function handle_rbql_report(report) {
     }
     var dst_table_path = report['result_path'];
     console.log('dst_table_path: ' + dst_table_path);
-    // FIXME do not adutodetect the result, set language explicitly
-    //autodetection_stoplist.add(dst_table_path);
-    atom.workspace.open(dst_table_path);
+    autodetection_stoplist.add(dst_table_path);
+    atom.workspace.open(dst_table_path).then(editor => {
+        var grammar = find_suitable_grammar(delim, policy);
+        if (grammar)
+            editor.setGrammar(grammar);
+    });
 }
 
 
@@ -725,7 +732,7 @@ function start_rbql() {
     input_node.focus();
 
     var report_handler = function(report) {
-        handle_rbql_report(report);
+        handle_rbql_report(report, delim, policy);
         if (!report || report['error_type'] || report['error_details'])
             return;
         rbql_panel.destroy(); // Success. Removing RBQL UI
