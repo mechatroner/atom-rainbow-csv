@@ -557,6 +557,36 @@ function disable_rainbow() {
 }
 
 
+function handle_rbql_report(report) {
+    if (!report) {
+        console.error('Empty rbql report');
+        return;
+    }
+    if (report.hasOwnProperty('error_type') || report.hasOwnProperty('error_details')) {
+        let error_type = report['error type'] || 'Error';
+        let error_details = report.hasOwnProperty('error_details') || 'Unknown Error';
+        atom.notifications.addError(`${error_type}: ${error_details}`, {'dismissable': true});
+        return;
+    }
+    var warnings = [];
+    if (report.hasOwnProperty('warnings')) {
+        warnings = report['warnings'];
+    }
+    for (let i = 0; i < warnings.length; i++) {
+        atom.notifications.addWarning(warnings[i], {'dismissable': true});
+    }
+    if (!report.hasOwnProperty('result_path')) {
+        atom.notifications.addError('Something went terribly wrong: RBQL JSON report is missing result_path attribute');
+        return;
+    }
+    var dst_table_path = report['result_path'];
+    console.log('dst_table_path: ' + dst_table_path);
+    // FIXME do not adutodetect the result, set language explicitly
+    //autodetection_stoplist.add(dst_table_path);
+    atom.workspace.open(dst_table_path);
+}
+
+
 function handle_command_result(error_code, stdout, stderr, report_handler) {
     console.log('error_code: ' + String(error_code));
     console.log('stdout: ' + String(stdout));
@@ -578,25 +608,6 @@ function handle_command_result(error_code, stdout, stderr, report_handler) {
         }
     }
     report_handler(report);
-    if (report.hasOwnProperty('error_type') || report.hasOwnProperty('error_details')) {
-        return;
-    }
-    var warnings = [];
-    if (report.hasOwnProperty('warnings')) {
-        warnings = report['warnings'];
-    }
-    for (let i = 0; i < warnings.length; i++) {
-        atom.notifications.addWarning(warnings[i], {'dismissable': true});
-    }
-    if (!report.hasOwnProperty('result_path')) {
-        atom.notifications.addError('Something went terribly wrong: RBQL JSON report is missing result_path attribute');
-        return;
-    }
-    var dst_table_path = report['result_path'];
-    console.log('dst_table_path: ' + dst_table_path);
-    // FIXME do not adutodetect the result, set language explicitly
-    //autodetection_stoplist.add(dst_table_path);
-    atom.workspace.open(dst_table_path);
 }
 
 
@@ -639,6 +650,40 @@ function get_dst_table_name(input_path, output_delim) {
         dst_extension = orig_extension;
     }
     return table_name + dst_extension;
+}
+
+
+function remove_if_exists(file_path) {
+    if (fs.existsSync(file_path)) {
+        fs.unlinkSync(file_path);
+    }
+}
+
+
+function get_error_message(error) {
+    if (error && error.message)
+        return error.message;
+    return String(error);
+}
+
+
+function handle_worker_success(output_path, warnings, tmp_worker_module_path, report_handler) {
+    console.log('Worker success');
+    remove_if_exists(tmp_worker_module_path);
+    let hr_warnings = [];
+    let report = {'result_path': output_path};
+    if (warnings) {
+        hr_warnings = rbql.make_warnings_human_readable(warnings);
+        report['warnings'] = hr_warnings; 
+    }
+    report_handler(report);
+}
+
+
+function handle_worker_failure(error_msg, tmp_worker_module_path, report_handler) {
+    console.log('Worker failure: ' + error_msg);
+    var report = {'error_type': 'RBQL_backend', 'error_details': error_msg};
+    report_handler(report);
 }
 
 
@@ -749,6 +794,7 @@ function start_rbql() {
     input_node.focus();
 
     var report_handler = function(report) {
+        handle_rbql_report(report);
         if (!report || report['error_type'] || report['error_details'])
             return;
         rbql_panel.destroy(); // Success. Removing RBQL UI
