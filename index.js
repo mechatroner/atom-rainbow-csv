@@ -510,6 +510,8 @@ function handle_rbql_report(report, delim, policy) {
     console.log('dst_table_path: ' + dst_table_path);
     autodetection_stoplist.add(dst_table_path);
     atom.workspace.open(dst_table_path).then(editor => {
+        if (policy == 'monocolumn')
+            return;
         var grammar = find_suitable_grammar(delim, policy);
         if (grammar)
             editor.setGrammar(grammar);
@@ -716,7 +718,6 @@ function start_rbql() {
     input_node.setAttribute('class', 'native-key-bindings'); // See https://discuss.atom.io/t/input-text-element-cant-backspace/4981/5
 
     // FIXME test with very long lines that don't fit the screen.
-    // FIXME test monocolumn
     for (let i = 0; i < fields.length; i++) {
         let color_name = 'rainbow' + (i + 1);
         let span_node = document.createElement('span');
