@@ -718,8 +718,9 @@ function start_rbql() {
     input_node.setAttribute('class', 'native-key-bindings'); // See https://discuss.atom.io/t/input-text-element-cant-backspace/4981/5
 
     // FIXME test with very long lines that don't fit the screen.
+    // FIXME align a1, a2, a3 etc column names to second line
     for (let i = 0; i < fields.length; i++) {
-        let color_name = 'rainbow' + (i + 1);
+        let color_name = 'rainbow' + (i % 10 + 1);
         let span_node = document.createElement('span');
         span_node.setAttribute('class', 'syntax--' + color_name);
         span_node.textContent = 'a' + (i + 1) + ' ';
