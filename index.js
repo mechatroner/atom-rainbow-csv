@@ -15,6 +15,7 @@ var last_rbql_queries = new Map();
 var rainbow_colors = [];
 var autodetection_stoplist = new Set();
 
+var rbql_panel = null;
 
 const autodetection_dialects = [
     {delim: ',', policy: 'quoted'},
@@ -670,9 +671,16 @@ function run_rbql_query(active_file_path, delim, policy, backend_language, rbql_
     }
 }
 
+function close_rbql_panel() {
+    if (rbql_panel) {
+        rbql_panel.destroy();
+    }
+    rbql_panel = null;
+}
 
 function start_rbql() {
-    // FIXME avoid showing RBQL interface twice or more, add a guard
+    if (rbql_panel)
+        return;
     let editor = atom.workspace.getActiveTextEditor();
     let delim = '';
     let policy = 'monocolumn';
@@ -722,7 +730,7 @@ function start_rbql() {
     rbql_panel_node.appendChild(cancel_button);
     rbql_panel_node.appendChild(help_link);
     rbql_panel_node.setAttribute('style', 'font-size: var(--editor-font-size); font-family: var(--editor-font-family); line-height: var(--editor-line-height)');
-    let rbql_panel = atom.workspace.addBottomPanel({'item': rbql_panel_node});
+    rbql_panel = atom.workspace.addBottomPanel({'item': rbql_panel_node});
     if (last_rbql_queries.has(file_path)) {
         input_node.value = last_rbql_queries.get(file_path);
     }
@@ -732,10 +740,10 @@ function start_rbql() {
         handle_rbql_report(report, delim, policy);
         if (!report || report['error_type'] || report['error_details'])
             return;
-        rbql_panel.destroy(); // Success. Removing RBQL UI
+        close_rbql_panel();
     }
 
-    cancel_button.addEventListener("click", () => { rbql_panel.destroy(); });
+    cancel_button.addEventListener("click", () => { close_rbql_panel(); });
     run_button.addEventListener("click", () => { 
         let rbql_query = input_node.value;
         run_rbql_query(file_path, delim, policy, backend_language, rbql_query, report_handler); 
@@ -747,7 +755,7 @@ function start_rbql() {
             run_rbql_query(file_path, delim, policy, backend_language, rbql_query, report_handler);
         }
         if (event.keyCode == 27) {
-            rbql_panel.destroy();
+            close_rbql_panel();
         }
     });
 }
