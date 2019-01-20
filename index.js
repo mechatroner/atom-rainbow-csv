@@ -9,7 +9,8 @@ const rainbow_utils = require('./rainbow_utils');
 // FIXME update README.md
 
 
-var status_bar_tile = null;
+var status_bar_tile_column = null;
+var status_bar_tile_rbql = null;
 var last_rbql_queries = new Map();
 var rainbow_colors = [];
 var autodetection_stoplist = new Set();
@@ -159,24 +160,36 @@ function autodetect_dialect(editor) {
 }
 
 
-function hide_statusbar_tile() {
-    if (!status_bar_tile)
-        return;
-    var ui_column_display = status_bar_tile.getItem();
-    if (ui_column_display) {
-        ui_column_display.textContent = '';
+function hide_statusbar_tiles() {
+    if (status_bar_tile_column) {
+        var elem = status_bar_tile_column.getItem();
+        if (elem) {
+            elem.textContent = '';
+        }
+    }
+    if (status_bar_tile_rbql) {
+        var elem = status_bar_tile_rbql.getItem();
+        if (elem) {
+            elem.textContent = '';
+        }
     }
 }
 
 
-function show_statusbar_tile(editor, delim, policy) {
+function show_statusbar_tiles(editor, delim, policy, event=null) {
+    if (status_bar_tile_rbql) {
+        var elem = status_bar_tile_rbql.getItem();
+        if (elem) {
+            elem.textContent = 'RBQL';
+        }
+    }
     if (editor.hasMultipleCursors())
         return;
-    if (!status_bar_tile)
+    if (!status_bar_tile_column)
         return;
-    var ui_column_display = status_bar_tile.getItem();
+    var ui_column_display = status_bar_tile_column.getItem();
     if (ui_column_display) {
-        var position = editor.getCursorBufferPosition();
+        let position = event ? event.newBufferPosition : editor.getCursorBufferPosition();
         display_position_info(editor, position, delim, policy, ui_column_display);
     }
 }
@@ -184,14 +197,14 @@ function show_statusbar_tile(editor, delim, policy) {
 
 function process_editor_switch(editor) {
     if (!editor) {
-        hide_statusbar_tile();
+        hide_statusbar_tiles();
         return;
     }
     var rainbow_scope = get_rainbow_scope(editor.getGrammar());
     if (rainbow_scope) {
-        show_statusbar_tile(editor, rainbow_scope.delim, rainbow_scope.policy);
+        show_statusbar_tiles(editor, rainbow_scope.delim, rainbow_scope.policy);
     } else {
-        hide_statusbar_tile();
+        hide_statusbar_tiles();
     }
 }
 
@@ -232,7 +245,8 @@ function do_set_rainbow_grammar(editor, delim, policy) {
     if (file_path) {
         update_table_record(file_path, delim, policy);
     }
-    enable_statusbar(editor, delim, policy);
+    var disposable_subscription = editor.onDidChangeCursorPosition(event => { show_statusbar_tiles(editor, delim, policy, event); });
+    editor['rcsv__package_ds'] = disposable_subscription;
 }
 
 
@@ -281,24 +295,6 @@ function handle_new_editor(editor) {
 }
 
 
-function enable_statusbar(editor, delim, policy) {
-    let cursor_callback = function(event) {
-        if (editor.hasMultipleCursors())
-            return;
-        if (!status_bar_tile)
-            return;
-        var ui_column_display = status_bar_tile.getItem();
-        if (ui_column_display) {
-            var position = event.newBufferPosition;
-            display_position_info(editor, position, delim, policy, ui_column_display);
-        }
-    }
-
-    var disposable_subscription = editor.onDidChangeCursorPosition(cursor_callback);
-    editor['rcsv__package_ds'] = disposable_subscription;
-}
-
-
 function do_disable_rainbow(editor) {
     // TODO add grammar change subscriber to handle situation when user disables rainbow grammar by another mechanism
     if (editor.hasOwnProperty('rcsv__package_old_grammar')) {
@@ -311,7 +307,7 @@ function do_disable_rainbow(editor) {
         editor['rcsv__package_ds'].dispose();
         delete editor['rcsv__package_ds'];
     }
-    hide_statusbar_tile();
+    hide_statusbar_tiles();
     var file_path = editor.getPath();
     if (file_path) {
         update_table_record(file_path, 'disabled', '');
@@ -344,18 +340,12 @@ function activate(_state) {
 
 
 function deactivate() {
-    if (status_bar_tile)
-        status_bar_tile.destroy();
-    status_bar_tile = null;
-}
-
-
-function consumeStatusBar(status_bar) {
-    // FIXME maybe I can create a button Element with onClick property()
-    var ui_column_display = document.createElement('div');
-    ui_column_display.textContent = '';
-    ui_column_display.setAttribute('class', 'inline-block');
-    status_bar_tile = status_bar.addLeftTile({item: ui_column_display, priority: 10});
+    if (status_bar_tile_column)
+        status_bar_tile_column.destroy();
+    status_bar_tile_column = null;
+    if (status_bar_tile_rbql)
+        status_bar_tile_rbql.destroy();
+    status_bar_tile_rbql = null;
 }
 
 
@@ -682,6 +672,7 @@ function run_rbql_query(active_file_path, delim, policy, backend_language, rbql_
 
 
 function start_rbql() {
+    // FIXME avoid showing RBQL interface twice or more, add a guard
     let editor = atom.workspace.getActiveTextEditor();
     let delim = '';
     let policy = 'monocolumn';
@@ -759,6 +750,21 @@ function start_rbql() {
             rbql_panel.destroy();
         }
     });
+}
+
+
+function consumeStatusBar(status_bar) {
+    var ui_column_display = document.createElement('div');
+    ui_column_display.textContent = '';
+    ui_column_display.setAttribute('class', 'inline-block');
+    status_bar_tile_column = status_bar.addLeftTile({item: ui_column_display, priority: 10});
+
+    var rbql_button = document.createElement('div');
+    rbql_button.onclick = start_rbql;
+    rbql_button.textContent = 'RBQL';
+    rbql_button.setAttribute('class', 'inline-block');
+    atom.tooltips.add(rbql_button, {title: 'Rainbow CSV: Run SQL-like RBQL query'})
+    status_bar_tile_rbql = status_bar.addLeftTile({item: rbql_button, priority: 9});
 }
 
 
