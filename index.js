@@ -697,6 +697,7 @@ function start_rbql() {
     if (!sampled_lines || !sampled_lines.length)
         return;
     let aligning_line = sampled_lines.length > 1 ? sampled_lines[1] : sampled_lines[0];
+    // TODO use line under the cursor instead of second line
     let fields = rainbow_utils.smart_split(aligning_line, delim, policy, true)[0];
 
     let rbql_panel_node = document.createElement('div');
@@ -717,13 +718,23 @@ function start_rbql() {
     input_node.setAttribute('style', 'width: 70%; color: black');
     input_node.setAttribute('class', 'native-key-bindings'); // See https://discuss.atom.io/t/input-text-element-cant-backspace/4981/5
 
-    // FIXME test with very long lines that don't fit the screen.
-    // FIXME align a1, a2, a3 etc column names to second line
+    let total_align_len = 0;
+    let total_header_len = 0;
+    let span_node = document.createElement('span');
+    span_node.textContent = '\xa0NR' + '\xa0'.repeat(3);
+    column_names_node.appendChild(span_node);
     for (let i = 0; i < fields.length; i++) {
+        total_align_len += fields[i].length;
         let color_name = 'rainbow' + (i % 10 + 1);
         let span_node = document.createElement('span');
         span_node.setAttribute('class', 'syntax--' + color_name);
-        span_node.textContent = 'a' + (i + 1) + ' ';
+        let aligned_col_name = 'a' + (i + 1) + '\xa0';
+        total_header_len += aligned_col_name.length;
+        if (total_header_len < total_align_len) {
+            aligned_col_name += '\xa0'.repeat(total_align_len - total_header_len);
+            total_header_len = total_align_len;
+        }
+        span_node.textContent = aligned_col_name;
         column_names_node.appendChild(span_node);
     }
     rbql_panel_node.appendChild(column_names_node);
