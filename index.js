@@ -693,11 +693,13 @@ function start_rbql() {
     }
     let backend_language = atom.config.get('rainbow-csv.rbql_backend');
     let file_path = editor.getPath();
-    let sampled_lines = sample_lines(editor);
-    if (!sampled_lines || !sampled_lines.length)
-        return;
-    let aligning_line = sampled_lines.length > 1 ? sampled_lines[1] : sampled_lines[0];
-    // TODO use line under the cursor instead of second line
+
+    let cursor_position = editor.getCursorBufferPosition();
+    let line_num = cursor_position ? cursor_position.row : 0;
+    let aligning_line = editor.lineTextForBufferRow(line_num);
+    if (aligning_line == '') {
+        aligning_line = editor.lineTextForBufferRow(0);
+    }
     let fields = rainbow_utils.smart_split(aligning_line, delim, policy, true)[0];
 
     let rbql_panel_node = document.createElement('div');
@@ -724,7 +726,7 @@ function start_rbql() {
     span_node.textContent = '\xa0NR' + '\xa0'.repeat(3);
     column_names_node.appendChild(span_node);
     for (let i = 0; i < fields.length; i++) {
-        total_align_len += fields[i].length;
+        total_align_len += fields[i].length + 1;
         let color_name = 'rainbow' + (i % 10 + 1);
         let span_node = document.createElement('span');
         span_node.setAttribute('class', 'syntax--' + color_name);
