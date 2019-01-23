@@ -6,8 +6,6 @@ const child_process = require('child_process');
 const rbql = require('./rbql_core/rbql-js/rbql');
 const rainbow_utils = require('./rainbow_utils');
 
-// FIXME update README.md
-
 
 var status_bar_tile_column = null;
 var status_bar_tile_rbql = null;
