@@ -21,7 +21,7 @@ This feature can be used to temporary rainbow-highlight even non-table files.
 
 Highlighting colors can be adjusted in package settings.  
 
-To Run RBQL query select "Rainbow CSV -> RBQL" from Atom context menu or click "RBQL" button at the status panel.  
+To Run RBQL query select "Rainbow CSV -> RBQL" from Atom context menu or click "RBQL" button at the status panel or run "rbql" command.  
 By default RBQL uses JavaScript backend, but it can be changed to Python in package settings.  
 
 
@@ -228,7 +228,6 @@ It should be: RBQL scripts have only 1000 - 2000 lines combined (depending on ho
 There is no complex logic, even query parsing functions are very simple. If something goes wrong RBQL will show an error instead of producing incorrect output, also there are currently 5 different warning types.
 
 
-
 ### Standalone CLI Apps
 
 You can also use two standalone RBQL apps with JavaScript and Python backends:
@@ -242,12 +241,7 @@ Installation: `$ pip install rbql`
 Usage: `$ rbql-py --query "select a1, a2 order by a1" < input.tsv`  
 
 
-
-
-
-
-
-# References
+## References
 
 * rainbow_csv plugin in [Vim](https://github.com/mechatroner/rainbow_csv)
 * Rainbow CSV extension in [Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=mechatroner.rainbow-csv)
