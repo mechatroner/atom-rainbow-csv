@@ -256,6 +256,8 @@ function is_plain_text_grammar(grammar) {
 
 
 function handle_new_editor(editor) {
+    if (!editor)
+        return;
     var file_path = editor.getPath();
     if (autodetection_stoplist.has(file_path)) {
         return;
@@ -476,6 +478,8 @@ function enable_rainbow_simple() {
 
 function disable_rainbow() {
     var editor = atom.workspace.getActiveTextEditor();
+    if (!editor)
+        return;
     if (get_rainbow_scope(editor.getGrammar())) {
         do_disable_rainbow(editor);
     }
@@ -508,7 +512,7 @@ function handle_rbql_report(report, delim, policy) {
     console.log('dst_table_path: ' + dst_table_path);
     autodetection_stoplist.add(dst_table_path);
     atom.workspace.open(dst_table_path).then(editor => {
-        if (policy == 'monocolumn')
+        if (!editor || policy == 'monocolumn')
             return;
         var grammar = find_suitable_grammar(delim, policy);
         if (grammar)
@@ -682,6 +686,8 @@ function start_rbql() {
     if (rbql_panel)
         return;
     let editor = atom.workspace.getActiveTextEditor();
+    if (!editor)
+        return;
     let delim = '';
     let policy = 'monocolumn';
     let rainbow_scope = get_rainbow_scope(editor.getGrammar());
