@@ -1,6 +1,6 @@
 {
   "name": "rainbow-csv",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Highlight CSV and TSV files in different colors; Run SQL-like queries",
   "keywords": [
     "CSV",
