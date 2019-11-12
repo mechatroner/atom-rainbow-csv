@@ -18,12 +18,12 @@ var autodetection_stoplist = new Set();
 
 var rbql_panel = null;
 
-// FIXME add pipe separator
 // FIXME implement improved dialect
 const autodetection_dialects = [
     {delim: ',', policy: 'quoted'},
     {delim: ';', policy: 'quoted'},
-    {delim: '\t', policy: 'simple'}
+    {delim: '\t', policy: 'simple'},
+    {delim: '|', policy: 'simple'}
 ];
 
 
@@ -90,7 +90,10 @@ function display_position_info(editor, position, delim, policy, ui_column_displa
     if (line_fields.length != header.length) {
         ui_text += "; WARN: inconsistent with Header line";
     }
-    ui_column_display.setAttribute('style', 'color:' + rainbow_colors[col_num % rainbow_colors.length]);
+    let css_class_name = '.syntax--rainbow' + (col_num % rainbow_colors.length + 1);
+    let elem = document.querySelector(css_class_name);
+    let style = getComputedStyle(elem);
+    ui_column_display.setAttribute('style', 'color:' + style.color);
     ui_column_display.textContent = ui_text;
 }
 
