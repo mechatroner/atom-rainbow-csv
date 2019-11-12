@@ -7,6 +7,9 @@ const rbql = require('./rbql_core/rbql-js/rbql');
 const rainbow_utils = require('./rainbow_utils');
 
 
+// Develop/debug/test instruction: https://stackoverflow.com/a/38270061/2898283
+
+
 var status_bar_tile_column = null;
 var status_bar_tile_rbql = null;
 var last_rbql_queries = new Map();
@@ -15,6 +18,8 @@ var autodetection_stoplist = new Set();
 
 var rbql_panel = null;
 
+// FIXME add pipe separator
+// FIXME implement improved dialect
 const autodetection_dialects = [
     {delim: ',', policy: 'quoted'},
     {delim: ';', policy: 'quoted'},
