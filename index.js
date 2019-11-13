@@ -6,6 +6,7 @@ const child_process = require('child_process');
 const rbql = require('./rbql_core/rbql-js/rbql');
 const rainbow_utils = require('./rainbow_utils');
 
+const num_rainbow_colors = 10;
 
 // Develop/debug/test instruction: https://stackoverflow.com/a/38270061/2898283
 
@@ -13,12 +14,12 @@ const rainbow_utils = require('./rainbow_utils');
 var status_bar_tile_column = null;
 var status_bar_tile_rbql = null;
 var last_rbql_queries = new Map();
-var rainbow_colors = [];
 var autodetection_stoplist = new Set();
 
 var rbql_panel = null;
 
-// FIXME implement improved dialect
+
+// FIXME implement improved dialect detection algorithm
 const autodetection_dialects = [
     {delim: ',', policy: 'quoted'},
     {delim: ';', policy: 'quoted'},
@@ -37,12 +38,10 @@ function remove_element(id) {
 
 function prepare_colors() {
     var css_code = '';
-    rainbow_colors = [];
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < num_rainbow_colors; i++) {
         let color_name = 'rainbow' + (i + 1);
         let color_value = atom.config.get('rainbow-csv.' + color_name);
         css_code += `.syntax--${color_name} { color: ${color_value}; }`;
-        rainbow_colors.push(color_value);
     }
     css_code += '.syntax--rainbowerror { color: #FFFFFF; background-color: #FF0000; }';
 
@@ -90,7 +89,7 @@ function display_position_info(editor, position, delim, policy, ui_column_displa
     if (line_fields.length != header.length) {
         ui_text += "; WARN: inconsistent with Header line";
     }
-    let css_class_name = '.syntax--rainbow' + (col_num % rainbow_colors.length + 1);
+    let css_class_name = '.syntax--rainbow' + (col_num % num_rainbow_colors + 1);
     let elem = document.querySelector(css_class_name);
     let style = getComputedStyle(elem);
     ui_column_display.setAttribute('style', 'color:' + style.color);
@@ -739,7 +738,7 @@ function start_rbql() {
     column_names_node.appendChild(span_node);
     for (let i = 0; i < fields.length; i++) {
         total_align_len += fields[i].length + 1;
-        let color_name = 'rainbow' + (i % 10 + 1);
+        let color_name = 'rainbow' + (i % num_rainbow_colors + 1);
         let span_node = document.createElement('span');
         span_node.setAttribute('class', 'syntax--' + color_name);
         let aligned_col_name = 'a' + (i + 1) + '\xa0';
