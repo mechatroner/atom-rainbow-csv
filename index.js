@@ -727,10 +727,11 @@ function start_rbql() {
 
     help_link.textContent = 'Help';
     run_button.textContent = 'Run';
+    run_button.setAttribute('style', 'color: #000000; background-color: #bfbfbf');
     cancel_button.textContent = 'Cancel';
 
     help_link.setAttribute('href', 'https://github.com/mechatroner/RBQL#rbql-rainbow-query-language-description');
-    cancel_button.setAttribute('style', 'margin-right: 20px');
+    cancel_button.setAttribute('style', 'margin-right: 20px; color: #000000; background-color: #bfbfbf');
     input_node.setAttribute('type', 'text');
     input_node.setAttribute('placeholder', 'select a1, a2 where a2 != "foobar" order by a1 limit 20');
     input_node.setAttribute('style', 'width: 70%; color: black');
