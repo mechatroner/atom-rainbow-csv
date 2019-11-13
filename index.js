@@ -65,6 +65,14 @@ function get_document_header(editor, delim, policy) {
 }
 
 
+function get_column_color(col_num) {
+    let css_class_name = '.syntax--rainbow' + (col_num % num_rainbow_colors + 1);
+    let elem = document.querySelector(css_class_name);
+    let style = getComputedStyle(elem);
+    return style.color;
+}
+
+
 function display_position_info(editor, position, delim, policy, ui_column_display) {
     var line_num = position.row;
     var column = position.column;
@@ -89,10 +97,7 @@ function display_position_info(editor, position, delim, policy, ui_column_displa
     if (line_fields.length != header.length) {
         ui_text += "; WARN: inconsistent with Header line";
     }
-    let css_class_name = '.syntax--rainbow' + (col_num % num_rainbow_colors + 1);
-    let elem = document.querySelector(css_class_name);
-    let style = getComputedStyle(elem);
-    ui_column_display.setAttribute('style', 'color:' + style.color);
+    ui_column_display.setAttribute('style', 'color:' + get_column_color(col_num));
     ui_column_display.textContent = ui_text;
 }
 
@@ -738,9 +743,8 @@ function start_rbql() {
     column_names_node.appendChild(span_node);
     for (let i = 0; i < fields.length; i++) {
         total_align_len += fields[i].length + 1;
-        let color_name = 'rainbow' + (i % num_rainbow_colors + 1);
         let span_node = document.createElement('span');
-        span_node.setAttribute('class', 'syntax--' + color_name);
+        span_node.setAttribute('style', 'color:' + get_column_color(i));
         let aligned_col_name = 'a' + (i + 1) + '\xa0';
         total_header_len += aligned_col_name.length;
         if (total_header_len < total_align_len) {
