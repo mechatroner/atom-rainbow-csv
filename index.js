@@ -3,8 +3,8 @@ const os = require('os');
 const fs = require('fs');
 const child_process = require('child_process');
 
-const rbql = require('./rbql_core/rbql-js/rbql');
-const rainbow_utils = require('./rainbow_utils');
+const rbql = require('./rbql_core/rbql-js/rbql.js');
+const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 const num_rainbow_colors = 10;
 
@@ -18,6 +18,7 @@ var autodetection_stoplist = new Set();
 
 var rbql_panel = null;
 
+// FIXME add "encoding" parameter for RBQL
 
 // FIXME implement improved dialect detection algorithm
 const autodetection_dialects = [
@@ -33,6 +34,19 @@ function remove_element(id) {
     if (elem) {
         elem.parentNode.removeChild(elem);
     }
+}
+
+
+function get_field_by_line_position(fields, query_pos) {
+    if (!fields.length)
+        return null;
+    var col_num = 0;
+    var cpos = fields[col_num].length + 1;
+    while (query_pos > cpos && col_num + 1 < fields.length) {
+        col_num += 1;
+        cpos = cpos + fields[col_num].length + 1;
+    }
+    return col_num;
 }
 
 
@@ -60,7 +74,7 @@ function get_document_header(editor, delim, policy) {
     if (editor.getLineCount() < 1)
         return [];
     let first_line = editor.lineTextForBufferRow(0);
-    var split_result = rainbow_utils.smart_split(first_line, delim, policy, false);
+    var split_result = csv_utils.smart_split(first_line, delim, policy, false);
     return split_result[0];
 }
 
@@ -77,12 +91,12 @@ function display_position_info(editor, position, delim, policy, ui_column_displa
     var line_num = position.row;
     var column = position.column;
     var line_text = editor.lineTextForBufferRow(line_num);
-    var split_result = rainbow_utils.smart_split(line_text, delim, policy, true);
+    var split_result = csv_utils.smart_split(line_text, delim, policy, true);
     if (split_result[1]) {
         return; 
     }
     var line_fields = split_result[0];
-    var col_num = rainbow_utils.get_field_by_line_position(line_fields, column + 1);
+    var col_num = get_field_by_line_position(line_fields, column + 1);
     if (col_num === null)
         return;
     var ui_text = 'Col #' + (col_num + 1);
@@ -118,14 +132,14 @@ function get_rainbow_scope(grammar) {
 function is_delimited_table(sampled_lines, delim, policy) {
     if (sampled_lines.length < 2)
         return false;
-    var split_result = rainbow_utils.smart_split(sampled_lines[0], delim, policy, false);
+    var split_result = csv_utils.smart_split(sampled_lines[0], delim, policy, false);
     if (split_result[1])
         return false;
     var num_fields = split_result[0].length;
     if (num_fields < 2)
         return false;
     for (var i = 1; i < sampled_lines.length; i++) {
-        split_result = rainbow_utils.smart_split(sampled_lines[i], delim, policy, false);
+        split_result = csv_utils.smart_split(sampled_lines[i], delim, policy, false);
         if (split_result[1])
             return false;
         if (split_result[0].length != num_fields)
@@ -716,7 +730,7 @@ function start_rbql() {
     if (aligning_line == '') {
         aligning_line = editor.lineTextForBufferRow(0);
     }
-    let fields = rainbow_utils.smart_split(aligning_line, delim, policy, true)[0];
+    let fields = csv_utils.smart_split(aligning_line, delim, policy, true)[0];
 
     let rbql_panel_node = document.createElement('div');
     let column_names_node = document.createElement('div');
