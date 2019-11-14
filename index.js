@@ -18,7 +18,6 @@ var autodetection_stoplist = new Set();
 
 var rbql_panel = null;
 
-// FIXME add "encoding" parameter for RBQL
 
 // FIXME implement improved dialect detection algorithm
 const autodetection_dialects = [
@@ -254,22 +253,26 @@ function try_get_file_record(file_path) {
 }
 
 
-function do_set_rainbow_grammar(editor, delim, policy) {
+function do_set_rainbow_grammar(editor, delim, policy, backup_old_grammar=true, save_new_grammar=true) {
     var grammar = find_suitable_grammar(delim, policy);
     if (!grammar) {
         console.error('Rainbow grammar was not found');
         return;
     }
-    var old_grammar = editor.getGrammar();
-    if (old_grammar && old_grammar.scopeName != 'text.plain.null-grammar') {
-        // We don't want to save null-grammar, because it doesn't cancel rainbow grammar
-        editor['rcsv__package_old_grammar'] = old_grammar;
+    if (backup_old_grammar) {
+        var old_grammar = editor.getGrammar();
+        if (old_grammar && old_grammar.scopeName != 'text.plain.null-grammar') {
+            // We don't want to save null-grammar, because it doesn't cancel rainbow grammar
+            editor['rcsv__package_old_grammar'] = old_grammar;
+        }
+    }
+    if (save_new_grammar) {
+        var file_path = editor.getPath();
+        if (file_path) {
+            update_table_record(file_path, delim, policy);
+        }
     }
     editor.setGrammar(grammar);
-    var file_path = editor.getPath();
-    if (file_path) {
-        update_table_record(file_path, delim, policy);
-    }
     var disposable_subscription = editor.onDidChangeCursorPosition(event => { show_statusbar_tiles(editor, delim, policy, event); });
     editor['rcsv__package_ds'] = disposable_subscription;
 }
@@ -540,9 +543,7 @@ function handle_rbql_report(report, delim, policy) {
     atom.workspace.open(dst_table_path).then(editor => {
         if (!editor || policy == 'monocolumn')
             return;
-        var grammar = find_suitable_grammar(delim, policy);
-        if (grammar)
-            editor.setGrammar(grammar);
+        do_set_rainbow_grammar(editor, delim, policy, false, false);
     });
 }
 
@@ -664,7 +665,6 @@ function run_rbql_query(input_path, delim, policy, backend_language, rbql_query,
         let rbql_exec_path = path.join(atom.packages.resolvePackagePath('rainbow-csv'), 'rbql_core', 'vscode_rbql.py');
         let cmd_safe_query = Buffer.from(rbql_query, "utf-8").toString("base64");
         let args = [rbql_exec_path, cmd_safe_query, input_path, delim, policy, output_path, output_delim, output_policy, encoding];
-        // FIXME no hover info/incorect hover info in result set tsv file: movies.tsv -> [Select a1, a2] -> movies.tsv.tsv with broken hover info
         run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(output_path, error_code, stdout, stderr, report_handler); });
     }
 }
