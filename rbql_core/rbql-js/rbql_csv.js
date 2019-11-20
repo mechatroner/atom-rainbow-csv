@@ -170,7 +170,7 @@ function js_string_escape_column_name(column_name, quote_char) {
 
 function parse_dictionary_variables(query, prefix, header_columns_names, dst_variables_map) {
     // The purpose of this algorithm is to minimize number of variables in varibale_map to improve performance, ideally it should be only variables from the query
-    
+
     // FIXME to prevent typos in attribute names either use query-based variable parsing which can properly handle back-tick strings or wrap "a" and "b" variables with ES6 Proxies https://stackoverflow.com/a/25658975/2898283
     assert(prefix === 'a' || prefix === 'b');
     let dict_test_rgx = new RegExp(`(?:^|[^_a-zA-Z0-9])${prefix}\\[`);
@@ -181,7 +181,7 @@ function parse_dictionary_variables(query, prefix, header_columns_names, dst_var
         let column_name = header_columns_names[i];
         let continuous_name_segments = rbql.get_all_matches(rgx, column_name);
         let add_column_name = true;
-        for (continuous_segment of continuous_name_segments) {
+        for (let continuous_segment of continuous_name_segments) {
             if (query.indexOf(continuous_segment) == -1) {
                 add_column_name = false;
                 break;
@@ -201,12 +201,12 @@ function parse_dictionary_variables(query, prefix, header_columns_names, dst_var
 
 function parse_attribute_variables(query, prefix, header_columns_names, dst_variables_map) {
     // The purpose of this algorithm is to minimize number of variables in varibale_map to improve performance, ideally it should be only variables from the query
-   
+
     assert(prefix === 'a' || prefix === 'b');
     let rgx = new RegExp(`(?:^|[^_a-zA-Z0-9])${prefix}\\.([_a-zA-Z][_a-zA-Z0-9]*)`, 'g');
     let matches = rbql.get_all_matches(rgx, query);
     let column_names = matches.map(v => v[1]);
-    for (column_name of column_names) {
+    for (let column_name of column_names) {
         let zero_based_idx = header_columns_names.indexOf(column_name);
         if (zero_based_idx != -1) {
             dst_variables_map[`${prefix}.${column_name}`] = {initialize: true, index: zero_based_idx};
@@ -237,7 +237,7 @@ function CSVRecordIterator(stream, encoding, delim, policy, table_name='input', 
     this.decoder = null;
     if (encoding == 'utf-8')
         this.decoder = new util.TextDecoder(encoding, {fatal: true, stream: true});
-   
+
     this.input_exhausted = false;
     this.started = false;
 
@@ -254,9 +254,21 @@ function CSVRecordIterator(stream, encoding, delim, policy, table_name='input', 
 
     this.resolve_current_record = null;
     this.reject_current_record = null;
+    this.current_exception = null;
 
     this.produced_records_queue = new RecordQueue();
 
+    this.handle_exception = function(exception) {
+        if (this.reject_current_record) {
+            let reject = this.reject_current_record;
+            this.reject_current_record = null;
+            this.resolve_current_record = null;
+            reject(exception);
+        } else {
+            this.current_exception = exception;
+        }
+
+    }
 
     this.preread_header = async function() {
         let header_record = await this.get_record();
@@ -272,7 +284,7 @@ function CSVRecordIterator(stream, encoding, delim, policy, table_name='input', 
         let variable_map = new Object();
         rbql.parse_basic_variables(query, this.variable_prefix, variable_map);
         rbql.parse_array_variables(query, this.variable_prefix, variable_map);
-        
+
         let header_record = await this.preread_header(); // TODO optimize: do not start the stream if query doesn't seem to have dictionary or attribute -looking patterns
         if (header_record) {
             parse_attribute_variables(query, this.variable_prefix, header_record, variable_map);
@@ -280,18 +292,19 @@ function CSVRecordIterator(stream, encoding, delim, policy, table_name='input', 
         }
         return variable_map;
     };
- 
+
 
     this.try_resolve_next_record = function() {
         if (this.resolve_current_record === null)
             return;
-        let record = this.produced_records_queue.dequeue()
+        let record = this.produced_records_queue.dequeue();
         if (record === null && !this.input_exhausted)
             return;
         let resolve = this.resolve_current_record;
         this.resolve_current_record = null;
+        this.reject_current_record = null;
         resolve(record);
-    }
+    };
 
 
     this.get_record = async function() {
@@ -299,14 +312,19 @@ function CSVRecordIterator(stream, encoding, delim, policy, table_name='input', 
             this.start();
         if (this.stream.isPaused())
             this.stream.resume();
+
         let parent_iterator = this;
-        current_record_promise = new Promise(function(resolve, reject) {
+        let current_record_promise = new Promise(function(resolve, reject) {
             parent_iterator.resolve_current_record = resolve;
             parent_iterator.reject_current_record = reject;
         });
+        if (this.current_exception) {
+            this.reject_current_record(this.current_exception);
+            return;
+        }
         this.try_resolve_next_record();
         return current_record_promise;
-    }
+    };
 
 
     this.get_all_records = async function(num_records=null) {
@@ -322,7 +340,7 @@ function CSVRecordIterator(stream, encoding, delim, policy, table_name='input', 
             }
         }
         return records;
-    }
+    };
 
 
     this._do_process_line_simple = function(line) {
@@ -379,9 +397,9 @@ function CSVRecordIterator(stream, encoding, delim, policy, table_name='input', 
                 decoded_string = this.decoder.decode(data_chunk);
             } catch (e) {
                 if (e instanceof TypeError) {
-                    this.reject_current_record(new RbqlIOHandlingError('Unable to decode input table as UTF-8. Use binary (latin-1) encoding instead'));
+                    this.handle_exception(new RbqlIOHandlingError('Unable to decode input table as UTF-8. Use binary (latin-1) encoding instead'));
                 } else {
-                    this.reject_current_record(e);
+                    this.handle_exception(e);
                 }
                 return;
             }
@@ -399,7 +417,7 @@ function CSVRecordIterator(stream, encoding, delim, policy, table_name='input', 
             this.dbg_stats_num_chunks_got += 1;
             this.dbg_stats_max_records = Math.max(this.dbg_stats_max_records, this.produced_records_queue.push_stack.length + this.produced_records_queue.pull_stack.length);
         }
-    }
+    };
 
 
     this.process_data_end = function() {
@@ -411,12 +429,12 @@ function CSVRecordIterator(stream, encoding, delim, policy, table_name='input', 
         } else {
             this.try_resolve_next_record();
         }
-    }
+    };
 
 
     this.stop = function() {
         this.stream.destroy(); // TODO consider using pause() instead
-    }
+    };
 
 
     this.start = function() {
@@ -542,7 +560,7 @@ function CSVWriter(stream, close_stream_on_finish, encoding, delim, policy, line
             }
         });
         return finish_promise;
-    }
+    };
 
 
     this.get_warnings = function() {
