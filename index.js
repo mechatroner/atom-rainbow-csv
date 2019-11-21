@@ -6,19 +6,25 @@ const child_process = require('child_process');
 const rbql = require('./rbql_core/rbql-js/rbql');
 const rainbow_utils = require('./rainbow_utils');
 
+const num_rainbow_colors = 10;
+
+// Develop/debug/test instruction: https://stackoverflow.com/a/38270061/2898283
+
 
 var status_bar_tile_column = null;
 var status_bar_tile_rbql = null;
 var last_rbql_queries = new Map();
-var rainbow_colors = [];
 var autodetection_stoplist = new Set();
 
 var rbql_panel = null;
 
+
+// TODO implement improved dialect detection algorithm
 const autodetection_dialects = [
     {delim: ',', policy: 'quoted'},
     {delim: ';', policy: 'quoted'},
-    {delim: '\t', policy: 'simple'}
+    {delim: '\t', policy: 'simple'},
+    {delim: '|', policy: 'simple'}
 ];
 
 
@@ -32,12 +38,10 @@ function remove_element(id) {
 
 function prepare_colors() {
     var css_code = '';
-    rainbow_colors = [];
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < num_rainbow_colors; i++) {
         let color_name = 'rainbow' + (i + 1);
         let color_value = atom.config.get('rainbow-csv.' + color_name);
         css_code += `.syntax--${color_name} { color: ${color_value}; }`;
-        rainbow_colors.push(color_value);
     }
     css_code += '.syntax--rainbowerror { color: #FFFFFF; background-color: #FF0000; }';
 
@@ -58,6 +62,14 @@ function get_document_header(editor, delim, policy) {
     let first_line = editor.lineTextForBufferRow(0);
     var split_result = rainbow_utils.smart_split(first_line, delim, policy, false);
     return split_result[0];
+}
+
+
+function get_column_color(col_num) {
+    let css_class_name = '.syntax--rainbow' + (col_num % num_rainbow_colors + 1);
+    let elem = document.querySelector(css_class_name);
+    let style = getComputedStyle(elem);
+    return style.color;
 }
 
 
@@ -85,7 +97,7 @@ function display_position_info(editor, position, delim, policy, ui_column_displa
     if (line_fields.length != header.length) {
         ui_text += "; WARN: inconsistent with Header line";
     }
-    ui_column_display.setAttribute('style', 'color:' + rainbow_colors[col_num % rainbow_colors.length]);
+    ui_column_display.setAttribute('style', 'color:' + get_column_color(col_num));
     ui_column_display.textContent = ui_text;
 }
 
@@ -228,22 +240,26 @@ function try_get_file_record(file_path) {
 }
 
 
-function do_set_rainbow_grammar(editor, delim, policy) {
+function do_set_rainbow_grammar(editor, delim, policy, backup_old_grammar=true, save_new_grammar=true) {
     var grammar = find_suitable_grammar(delim, policy);
     if (!grammar) {
         console.error('Rainbow grammar was not found');
         return;
     }
-    var old_grammar = editor.getGrammar();
-    if (old_grammar && old_grammar.scopeName != 'text.plain.null-grammar') {
-        // We don't want to save null-grammar, because it doesn't cancel rainbow grammar
-        editor['rcsv__package_old_grammar'] = old_grammar;
+    if (backup_old_grammar) {
+        var old_grammar = editor.getGrammar();
+        if (old_grammar && old_grammar.scopeName != 'text.plain.null-grammar') {
+            // We don't want to save null-grammar, because it doesn't cancel rainbow grammar
+            editor['rcsv__package_old_grammar'] = old_grammar;
+        }
+    }
+    if (save_new_grammar) {
+        var file_path = editor.getPath();
+        if (file_path) {
+            update_table_record(file_path, delim, policy);
+        }
     }
     editor.setGrammar(grammar);
-    var file_path = editor.getPath();
-    if (file_path) {
-        update_table_record(file_path, delim, policy);
-    }
     var disposable_subscription = editor.onDidChangeCursorPosition(event => { show_statusbar_tiles(editor, delim, policy, event); });
     editor['rcsv__package_ds'] = disposable_subscription;
 }
@@ -514,9 +530,7 @@ function handle_rbql_report(report, delim, policy) {
     atom.workspace.open(dst_table_path).then(editor => {
         if (!editor || policy == 'monocolumn')
             return;
-        var grammar = find_suitable_grammar(delim, policy);
-        if (grammar)
-            editor.setGrammar(grammar);
+        do_set_rainbow_grammar(editor, delim, policy, false, false);
     });
 }
 
@@ -675,12 +689,14 @@ function run_rbql_query(active_file_path, delim, policy, backend_language, rbql_
     }
 }
 
+
 function close_rbql_panel() {
     if (rbql_panel) {
         rbql_panel.destroy();
     }
     rbql_panel = null;
 }
+
 
 function start_rbql() {
     if (rbql_panel)
@@ -712,13 +728,17 @@ function start_rbql() {
     let run_button = document.createElement('button');
     let cancel_button = document.createElement('button');
     let help_link = document.createElement('a');
+    let backend_lang_info = document.createElement('span');
 
+    backend_lang_info.textContent = backend_language + ' - backend language'
     help_link.textContent = 'Help';
     run_button.textContent = 'Run';
+    run_button.setAttribute('style', 'color: #000000; background-color: #bfbfbf');
     cancel_button.textContent = 'Cancel';
 
+    backend_lang_info.setAttribute('style', 'margin-left: 10px');
     help_link.setAttribute('href', 'https://github.com/mechatroner/RBQL#rbql-rainbow-query-language-description');
-    cancel_button.setAttribute('style', 'margin-right: 20px');
+    cancel_button.setAttribute('style', 'margin-right: 20px; color: #000000; background-color: #bfbfbf');
     input_node.setAttribute('type', 'text');
     input_node.setAttribute('placeholder', 'select a1, a2 where a2 != "foobar" order by a1 limit 20');
     input_node.setAttribute('style', 'width: 70%; color: black');
@@ -731,9 +751,8 @@ function start_rbql() {
     column_names_node.appendChild(span_node);
     for (let i = 0; i < fields.length; i++) {
         total_align_len += fields[i].length + 1;
-        let color_name = 'rainbow' + (i % 10 + 1);
         let span_node = document.createElement('span');
-        span_node.setAttribute('class', 'syntax--' + color_name);
+        span_node.setAttribute('style', 'color:' + get_column_color(i));
         let aligned_col_name = 'a' + (i + 1) + '\xa0';
         total_header_len += aligned_col_name.length;
         if (total_header_len < total_align_len) {
@@ -748,6 +767,7 @@ function start_rbql() {
     rbql_panel_node.appendChild(run_button);
     rbql_panel_node.appendChild(cancel_button);
     rbql_panel_node.appendChild(help_link);
+    rbql_panel_node.appendChild(backend_lang_info);
     rbql_panel_node.setAttribute('style', 'font-size: var(--editor-font-size); font-family: var(--editor-font-family); line-height: var(--editor-line-height)');
     rbql_panel = atom.workspace.addBottomPanel({'item': rbql_panel_node});
     if (last_rbql_queries.has(file_path)) {
@@ -798,6 +818,7 @@ function consumeStatusBar(status_bar) {
 let rainbow_config = {
     'autodetection': {type: 'boolean', default: true, title: "Table files autodetection", description: 'Enable content-based autodetection for csv and tsv files that do not have "*.csv" or "*.tsv" extensions'},
     'rbql_backend': {type: 'string', default: 'JavaScript', enum: ['JavaScript', 'Python'], title: "RBQL backend language", description: 'RBQL backend language. JavaScript works out of the box. To use Python you need python interpreter installed in your OS.'},
+    'rbql_encoding': {type: 'string', default: 'utf-8', enum: ['utf-8', 'latin-1'], title: "RBQL encoding", description: 'RBQL encoding for input and output CSV files'},
     'rainbow1': {type: 'color', default: '#E6194B', title: "Rainbow Color 1"},
     'rainbow2': {type: 'color', default: '#3CB44B', title: "Rainbow Color 2"},
     'rainbow3': {type: 'color', default: '#FFE119', title: "Rainbow Color 3"},
