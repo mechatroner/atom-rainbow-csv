@@ -818,7 +818,6 @@ function consumeStatusBar(status_bar) {
 let rainbow_config = {
     'autodetection': {type: 'boolean', default: true, title: "Table files autodetection", description: 'Enable content-based autodetection for csv and tsv files that do not have "*.csv" or "*.tsv" extensions'},
     'rbql_backend': {type: 'string', default: 'JavaScript', enum: ['JavaScript', 'Python'], title: "RBQL backend language", description: 'RBQL backend language. JavaScript works out of the box. To use Python you need python interpreter installed in your OS.'},
-    'rbql_encoding': {type: 'string', default: 'utf-8', enum: ['utf-8', 'latin-1'], title: "RBQL encoding", description: 'RBQL encoding for input and output CSV files'},
     'rainbow1': {type: 'color', default: '#E6194B', title: "Rainbow Color 1"},
     'rainbow2': {type: 'color', default: '#3CB44B', title: "Rainbow Color 2"},
     'rainbow3': {type: 'color', default: '#FFE119', title: "Rainbow Color 3"},
