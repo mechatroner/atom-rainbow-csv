@@ -67,9 +67,13 @@ function get_document_header(editor, delim, policy) {
 
 function get_column_color(col_num) {
     let css_class_name = '.syntax--rainbow' + (col_num % num_rainbow_colors + 1);
-    let elem = document.querySelector(css_class_name);
-    let style = getComputedStyle(elem);
-    return style.color;
+    try {
+        let elem = document.querySelector(css_class_name);
+        let style = getComputedStyle(elem);
+        return style.color;
+    } catch (e) {
+        return '#bfbfbf';
+    }
 }
 
 
