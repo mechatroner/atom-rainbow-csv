@@ -632,7 +632,7 @@ function exception_to_error_info(e) {
 
 
 function run_rbql_native(input_path, query, delim, policy, output_path, output_delim, output_policy, csv_encoding, report_handler) {
-    rbql_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding).then(warnings => {
+    rbql_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, '', {'bulk_read': true}).then(warnings => {
         report_handler({'result_path': output_path, 'warnings': warnings});
     }).catch(e => {
         let [error_type, error_msg] = exception_to_error_info(e);
