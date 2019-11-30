@@ -46,6 +46,11 @@ from collections import defaultdict, namedtuple
 
 
 
+# FIXME change generic_run/table_run/csv_run interfaces - do not return error object, throw exception instead
+
+# FIXME make sure column name dict variables does not include newlines
+
+
 GROUP_BY = 'GROUP BY'
 UPDATE = 'UPDATE'
 SELECT = 'SELECT'

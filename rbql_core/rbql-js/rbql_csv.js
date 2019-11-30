@@ -6,6 +6,10 @@ const util = require('util');
 const rbql = require('./rbql.js');
 const csv_utils = require('./csv_utils.js');
 
+
+const utf_decoding_error = 'Unable to decode input table as UTF-8. Use binary (latin-1) encoding instead';
+
+
 var debug_mode = false;
 
 class RbqlIOHandlingError extends Error {}
@@ -14,6 +18,9 @@ class AssertionError extends Error {}
 
 
 // TODO performance improvement: replace smart_split() with polymorphic_split()
+
+
+// FIXME use whole file read + trick from here https://stackoverflow.com/a/32279283/2898283 to solve reliable utf-8 decoding problem
 
 
 function assert(condition, message=null) {
@@ -232,13 +239,19 @@ function CSVRecordIterator(stream, csv_path, encoding, delim, policy, table_name
     this.table_name = table_name;
     this.variable_prefix = variable_prefix;
 
-    this.collect_debug_stats = false;
-    this.dbg_stats_num_chunks_got = 0;
-    this.dbg_stats_max_records = 0;
-
     this.decoder = null;
-    if (encoding == 'utf-8')
+    if (encoding == 'utf-8' && this.csv_path === null) {
+        // Unfortunately util.TextDecoder has serious flaws:
+        // 1. It doesn't work in Node without ICU: https://nodejs.org/api/util.html#util_new_textdecoder_encoding_options
+        // 2. It is broken in Electron: https://github.com/electron/electron/issues/18733
+
+        // Technically we can implement our own custom streaming text decoder, using 3 following technologies:
+        // 1. decode-encode validation method from https://stackoverflow.com/a/32279283/2898283
+        // 2. Scanning buffer chunks for non-continuation utf-8 bytes from the end of the buffer: 
+        //    src_buffer -> (buffer_before, buffer_after) where buffer_after is very small(a couple of bytes) and buffer_before is large and ends with a non-continuation bytes
+        // 3. Internal buffer to store small tail part from the previous buffer
         this.decoder = new util.TextDecoder(encoding, {fatal: true, stream: true});
+    }
 
     this.input_exhausted = false;
     this.started = false;
@@ -323,7 +336,6 @@ function CSVRecordIterator(stream, csv_path, encoding, delim, policy, table_name
         });
         if (this.current_exception) {
             this.reject_current_record(this.current_exception);
-            return;
         }
         this.try_resolve_next_record();
         return current_record_promise;
@@ -393,14 +405,14 @@ function CSVRecordIterator(stream, csv_path, encoding, delim, policy, table_name
     };
 
 
-    this.process_data_chunk = function(data_chunk) {
+    this.process_data_stream_chunk = function(data_chunk) {
         let decoded_string = null;
         if (this.decoder) {
             try {
                 decoded_string = this.decoder.decode(data_chunk);
             } catch (e) {
                 if (e instanceof TypeError) {
-                    this.handle_exception(new RbqlIOHandlingError('Unable to decode input table as UTF-8. Use binary (latin-1) encoding instead'));
+                    this.handle_exception(new RbqlIOHandlingError(utf_decoding_error));
                 } else {
                     this.handle_exception(e);
                 }
@@ -415,15 +427,32 @@ function CSVRecordIterator(stream, csv_path, encoding, delim, policy, table_name
         for (let i = 0; i < lines.length; i++) {
             this.process_line(lines[i]);
         }
-
-        if (this.collect_debug_stats) {
-            this.dbg_stats_num_chunks_got += 1;
-            this.dbg_stats_max_records = Math.max(this.dbg_stats_max_records, this.produced_records_queue.push_stack.length + this.produced_records_queue.pull_stack.length);
-        }
     };
 
 
-    this.process_data_end = function() {
+    this.process_data_bulk = function(data_chunk) {
+        let decoded_string = data_chunk.toString(this.encoding);
+        if (this.encoding == 'utf-8') {
+            // Using hacky comparison method from here: https://stackoverflow.com/a/32279283/2898283
+            // TODO get rid of this once TextDecoder is really fixed or when alternative method of reliable decoding appears
+            let control_buffer = new Buffer(decoded_string, 'utf-8');
+            if (Buffer.compare(data_chunk, control_buffer) != 0) {
+                this.handle_exception(new RbqlIOHandlingError(utf_decoding_error));
+                return;
+            }
+        }
+        let lines = csv_utils.split_lines(decoded_string);
+        if (lines.length && lines[lines.length - 1].length == 0)
+            lines.pop();
+        for (let i = 0; i < lines.length; i++) {
+            this.process_line(lines[i]);
+        }
+        this.input_exhausted = true;
+        this.try_resolve_next_record(); // Should be a NOOP here?
+    }
+
+
+    this.process_data_stream_end = function() {
         this.input_exhausted = true;
         if (this.partially_decoded_line.length) {
             let last_line = this.partially_decoded_line;
@@ -446,8 +475,8 @@ function CSVRecordIterator(stream, csv_path, encoding, delim, policy, table_name
             return;
         this.started = true;
         if (this.stream) {
-            this.stream.on('data', (data_chunk) => { this.process_data_chunk(data_chunk); });
-            this.stream.on('end', () => { this.process_data_end(); });
+            this.stream.on('data', (data_chunk) => { this.process_data_stream_chunk(data_chunk); });
+            this.stream.on('end', () => { this.process_data_stream_end(); });
         } else {
             let parent_iterator = this;
             return new Promise(function(resolve, reject) {
@@ -455,8 +484,7 @@ function CSVRecordIterator(stream, csv_path, encoding, delim, policy, table_name
                     if (err) {
                         reject(err);
                     } else {
-                        parent_iterator.process_data_chunk(data_chunk);
-                        parent_iterator.process_data_end();
+                        parent_iterator.process_data_bulk(data_chunk);
                         resolve();
                     }
                 });
@@ -594,20 +622,27 @@ function CSVWriter(stream, close_stream_on_finish, encoding, delim, policy, line
 }
 
 
-function FileSystemCSVRegistry(delim, policy, encoding) {
+function FileSystemCSVRegistry(delim, policy, encoding, options=null) {
     this.delim = delim;
     this.policy = policy;
     this.encoding = encoding;
     this.stream = null;
     this.record_iterator = null;
 
+    this.options = options;
+    this.bulk_input_path = null;
+
     this.get_iterator_by_table_id = function(table_id) {
         let table_path = find_table_path(table_id);
         if (table_path === null) {
             throw new RbqlIOHandlingError(`Unable to find join table "${table_id}"`);
         }
-        this.stream = fs.createReadStream(table_path);
-        this.record_iterator = new CSVRecordIterator(this.stream, null, this.encoding, this.delim, this.policy, table_id, 'b');
+        if (this.options && this.options['bulk_read']) {
+            this.bulk_input_path = table_path;
+        } else {
+            this.stream = fs.createReadStream(table_path);
+        }
+        this.record_iterator = new CSVRecordIterator(this.stream, this.bulk_input_path, this.encoding, this.delim, this.policy, table_id, 'b');
         return this.record_iterator;
     };
 }
@@ -616,7 +651,7 @@ function FileSystemCSVRegistry(delim, policy, encoding) {
 async function csv_run(user_query, input_path, input_delim, input_policy, output_path, output_delim, output_policy, csv_encoding, user_init_code='', options=null) {
     let input_stream = null;
     let bulk_input_path = null;
-    if (options && options.hasOwnProperty('bulk_read') && options['bulk_read'] && input_path) {
+    if (options && options['bulk_read'] && input_path) {
         bulk_input_path = input_path;
     } else {
         input_stream = input_path === null ? process.stdin : fs.createReadStream(input_path);
@@ -636,7 +671,7 @@ async function csv_run(user_query, input_path, input_delim, input_policy, output
         user_init_code = read_user_init_code(default_init_source_path);
     }
 
-    let join_tables_registry = new FileSystemCSVRegistry(input_delim, input_policy, csv_encoding);
+    let join_tables_registry = new FileSystemCSVRegistry(input_delim, input_policy, csv_encoding, options);
     let input_iterator = new CSVRecordIterator(input_stream, bulk_input_path, csv_encoding, input_delim, input_policy);
     let output_writer = new CSVWriter(output_stream, close_output_on_finish, csv_encoding, output_delim, output_policy);
 
