@@ -3,8 +3,8 @@ const os = require('os');
 const fs = require('fs');
 const child_process = require('child_process');
 
-const rbql = require('./rbql_core/rbql-js/rbql');
-const rainbow_utils = require('./rainbow_utils');
+const rbql_csv = require('./rbql_core/rbql-js/rbql_csv.js');
+const csv_utils = require('./rbql_core/rbql-js/csv_utils.js');
 
 const num_rainbow_colors = 10;
 
@@ -20,6 +20,8 @@ var rbql_panel = null;
 
 
 // TODO implement improved dialect detection algorithm
+
+
 const autodetection_dialects = [
     {delim: ',', policy: 'quoted'},
     {delim: ';', policy: 'quoted'},
@@ -33,6 +35,19 @@ function remove_element(id) {
     if (elem) {
         elem.parentNode.removeChild(elem);
     }
+}
+
+
+function get_field_by_line_position(fields, query_pos) {
+    if (!fields.length)
+        return null;
+    var col_num = 0;
+    var cpos = fields[col_num].length + 1;
+    while (query_pos > cpos && col_num + 1 < fields.length) {
+        col_num += 1;
+        cpos = cpos + fields[col_num].length + 1;
+    }
+    return col_num;
 }
 
 
@@ -60,7 +75,7 @@ function get_document_header(editor, delim, policy) {
     if (editor.getLineCount() < 1)
         return [];
     let first_line = editor.lineTextForBufferRow(0);
-    var split_result = rainbow_utils.smart_split(first_line, delim, policy, false);
+    var split_result = csv_utils.smart_split(first_line, delim, policy, false);
     return split_result[0];
 }
 
@@ -81,12 +96,12 @@ function display_position_info(editor, position, delim, policy, ui_column_displa
     var line_num = position.row;
     var column = position.column;
     var line_text = editor.lineTextForBufferRow(line_num);
-    var split_result = rainbow_utils.smart_split(line_text, delim, policy, true);
+    var split_result = csv_utils.smart_split(line_text, delim, policy, true);
     if (split_result[1]) {
         return; 
     }
     var line_fields = split_result[0];
-    var col_num = rainbow_utils.get_field_by_line_position(line_fields, column + 1);
+    var col_num = get_field_by_line_position(line_fields, column + 1);
     if (col_num === null)
         return;
     var ui_text = 'Col #' + (col_num + 1);
@@ -122,14 +137,14 @@ function get_rainbow_scope(grammar) {
 function is_delimited_table(sampled_lines, delim, policy) {
     if (sampled_lines.length < 2)
         return false;
-    var split_result = rainbow_utils.smart_split(sampled_lines[0], delim, policy, false);
+    var split_result = csv_utils.smart_split(sampled_lines[0], delim, policy, false);
     if (split_result[1])
         return false;
     var num_fields = split_result[0].length;
     if (num_fields < 2)
         return false;
     for (var i = 1; i < sampled_lines.length; i++) {
-        split_result = rainbow_utils.smart_split(sampled_lines[i], delim, policy, false);
+        split_result = csv_utils.smart_split(sampled_lines[i], delim, policy, false);
         if (split_result[1])
             return false;
         if (split_result[0].length != num_fields)
@@ -511,10 +526,10 @@ function handle_rbql_report(report, delim, policy) {
         console.error('Empty rbql report');
         return;
     }
-    if (report.hasOwnProperty('error_type') || report.hasOwnProperty('error_details')) {
+    if (report.hasOwnProperty('error_type') || report.hasOwnProperty('error_msg')) {
         let error_type = report['error type'] || 'Error';
-        let error_details = report['error_details'] || 'Unknown Error';
-        atom.notifications.addError(`${error_type}: ${error_details}`, {'dismissable': true});
+        let error_msg = report['error_msg'] || 'Unknown Error';
+        atom.notifications.addError(`${error_type}: ${error_msg}`, {'dismissable': true});
         return;
     }
     var warnings = [];
@@ -539,7 +554,7 @@ function handle_rbql_report(report, delim, policy) {
 }
 
 
-function handle_command_result(error_code, stdout, stderr, report_handler) {
+function handle_command_result(output_path, error_code, stdout, stderr, report_handler) {
     console.log('error_code: ' + String(error_code));
     console.log('stdout: ' + String(stdout));
     console.log('stderr: ' + String(stderr));
@@ -547,18 +562,19 @@ function handle_command_result(error_code, stdout, stderr, report_handler) {
     var report = null;
     var json_report = stdout;
     if (error_code || !json_report.length || stderr.length) {
-        var error_details = "Unknown Integration Error";
+        let error_msg = "Unknown Integration Error";
         if (stderr.length) {
-            error_details += '\nstderr: ' + stderr;
+            error_msg += '\nstderr: ' + stderr;
         }
-        report = {"error_type": "Integration", "error_details": error_details};
+        report = {"error_type": "Integration", "error_msg": error_msg};
     } else {
         try {
             report = JSON.parse(json_report);
         } catch (e) {
-            report = {"error_type": "Integration", "error_details": "Report JSON parsing error"};
+            report = {"error_type": "Integration", "error_msg": "Report JSON parsing error"};
         }
     }
+    report['result_path'] = output_path;
     report_handler(report);
 }
 
@@ -582,7 +598,7 @@ function run_command(cmd, args, close_and_error_guard, callback_func) {
     });
     command.on('error', function(error) {
         console.log('child_process got "error" event');
-        var error_msg = error ? error.name + ': ' + error.message : '';
+        let error_msg = error ? error.name + ': ' + error.message : '';
         if (!close_and_error_guard['process_reported']) {
             close_and_error_guard['process_reported'] = true;
             callback_func(1, '', 'Something went wrong. Make sure you have python installed and added to PATH variable in your OS. Or you can use it with JavaScript instead - it should work out of the box\nDetails:\n' + error_msg);
@@ -605,91 +621,57 @@ function get_dst_table_name(input_path, output_delim) {
 }
 
 
-function remove_if_exists(file_path) {
-    if (fs.existsSync(file_path)) {
-        fs.unlinkSync(file_path);
+
+function exception_to_error_info(e) {
+    let exceptions_type_map = {
+        'RbqlRuntimeError': 'query execution',
+        'RbqlParsingError': 'query parsing',
+        'RbqlIOHandlingError': 'IO handling'
+    };
+    let error_type = 'unexpected';
+    if (e.constructor && e.constructor.name && exceptions_type_map.hasOwnProperty(e.constructor.name)) {
+        error_type = exceptions_type_map[e.constructor.name];
     }
+    let error_msg = e.hasOwnProperty('message') ? e.message : String(e);
+    return [error_type, error_msg];
 }
 
 
-function get_error_message(error) {
-    if (error && error.message)
-        return error.message;
-    return String(error);
+function run_rbql_native(input_path, query, delim, policy, output_path, output_delim, output_policy, csv_encoding, report_handler) {
+    rbql_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, '', {'bulk_read': true}).then(warnings => {
+        report_handler({'result_path': output_path, 'warnings': warnings});
+    }).catch(e => {
+        let [error_type, error_msg] = exception_to_error_info(e);
+        report_handler({'result_type': error_type, 'error_msg': error_msg});
+    });
 }
 
 
-function handle_worker_success(output_path, warnings, tmp_worker_module_path, report_handler) {
-    console.log('Worker success');
-    remove_if_exists(tmp_worker_module_path);
-    let hr_warnings = [];
-    let report = {'result_path': output_path};
-    if (warnings) {
-        hr_warnings = rbql.make_warnings_human_readable(warnings);
-        report['warnings'] = hr_warnings; 
-    }
-    report_handler(report);
-}
-
-
-function handle_worker_failure(error_msg, tmp_worker_module_path, report_handler) {
-    console.log('Worker failure: ' + error_msg);
-    var report = {'error_type': 'RBQL_backend', 'error_details': error_msg};
-    report_handler(report);
-}
-
-
-function run_rbql_native(input_path, query, delim, policy, report_handler) {
-    var rbql_lines = [query];
-    var tmp_dir = os.tmpdir();
-    var script_filename = 'rbconvert_' + String(Math.random()).replace('.', '_') + '.js';
-    var tmp_worker_module_path = path.join(tmp_dir, script_filename);
-    var output_delim = delim;
-    var output_policy = policy;
-    var csv_encoding = rbql.default_csv_encoding;
-
-    var output_file_name = get_dst_table_name(input_path, output_delim);
-    var output_path = path.join(tmp_dir, output_file_name);
-    var worker_module = null;
-
-    try {
-        rbql.parse_to_js(input_path, output_path, rbql_lines, tmp_worker_module_path, delim, policy, output_delim, output_policy, csv_encoding);
-        worker_module = require(tmp_worker_module_path);
-    } catch (e) {
-        let report = {'error_type': 'RBQL_parsing', 'error_details': get_error_message(e)};
-        report_handler(report);
-        return;
-    }
-    var handle_success = function(warnings) {
-        handle_worker_success(output_path, warnings, tmp_worker_module_path, report_handler);
-    }
-    var handle_failure = function(error_msg) {
-        handle_worker_failure(error_msg, tmp_worker_module_path, report_handler);
-    }
-    worker_module.run_on_node(handle_success, handle_failure);
-}
-
-
-function run_rbql_query(active_file_path, delim, policy, backend_language, rbql_query, report_handler) {
-    last_rbql_queries.set(active_file_path, rbql_query);
+function run_rbql_query(input_path, delim, policy, backend_language, rbql_query, report_handler) {
+    last_rbql_queries.set(input_path, rbql_query);
     var cmd = 'python';
     const test_marker = 'test ';
     let close_and_error_guard = {'process_reported': false};
+    var output_delim = delim;
+    var output_policy = policy;
+    let encoding = atom.config.get('rainbow-csv.rbql_encoding');
+    let output_path = path.join(os.tmpdir(), get_dst_table_name(input_path, output_delim));
     if (rbql_query.startsWith(test_marker)) {
         if (rbql_query.indexOf('nopython') != -1) {
             cmd = 'nopython';
         }
         let mock_script_path = path.join(atom.packages.resolvePackagePath('rainbow-csv'), 'rbql mock', 'rbql_mock.py');
         let args = [mock_script_path, rbql_query];
-        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
+        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(output_path, error_code, stdout, stderr, report_handler); });
         return;
     }
     if (backend_language == 'JavaScript') {
-        run_rbql_native(active_file_path, rbql_query, delim, policy, report_handler);
+        run_rbql_native(input_path, rbql_query, delim, policy, output_path, output_delim, output_policy, encoding, report_handler);
     } else {
         let rbql_exec_path = path.join(atom.packages.resolvePackagePath('rainbow-csv'), 'rbql_core', 'vscode_rbql.py');
-        let args = [rbql_exec_path, delim, policy, rbql_query, active_file_path];
-        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(error_code, stdout, stderr, report_handler); });
+        let cmd_safe_query = Buffer.from(rbql_query, "utf-8").toString("base64");
+        let args = [rbql_exec_path, cmd_safe_query, input_path, delim, policy, output_path, output_delim, output_policy, encoding];
+        run_command(cmd, args, close_and_error_guard, function(error_code, stdout, stderr) { handle_command_result(output_path, error_code, stdout, stderr, report_handler); });
     }
 }
 
@@ -724,7 +706,7 @@ function start_rbql() {
     if (aligning_line == '') {
         aligning_line = editor.lineTextForBufferRow(0);
     }
-    let fields = rainbow_utils.smart_split(aligning_line, delim, policy, true)[0];
+    let fields = csv_utils.smart_split(aligning_line, delim, policy, true)[0];
 
     let rbql_panel_node = document.createElement('div');
     let column_names_node = document.createElement('div');
@@ -781,7 +763,7 @@ function start_rbql() {
 
     var report_handler = function(report) {
         handle_rbql_report(report, delim, policy);
-        if (!report || report['error_type'] || report['error_details'])
+        if (!report || report['error_type'] || report['error_msg'])
             return;
         close_rbql_panel();
     }
@@ -822,6 +804,7 @@ function consumeStatusBar(status_bar) {
 let rainbow_config = {
     'autodetection': {type: 'boolean', default: true, title: "Table files autodetection", description: 'Enable content-based autodetection for csv and tsv files that do not have "*.csv" or "*.tsv" extensions'},
     'rbql_backend': {type: 'string', default: 'JavaScript', enum: ['JavaScript', 'Python'], title: "RBQL backend language", description: 'RBQL backend language. JavaScript works out of the box. To use Python you need python interpreter installed in your OS.'},
+    'rbql_encoding': {type: 'string', default: 'utf-8', enum: ['utf-8', 'latin-1'], title: "RBQL encoding", description: 'RBQL encoding for input and output CSV files'},
     'rainbow1': {type: 'color', default: '#E6194B', title: "Rainbow Color 1"},
     'rainbow2': {type: 'color', default: '#3CB44B', title: "Rainbow Color 2"},
     'rainbow3': {type: 'color', default: '#FFE119', title: "Rainbow Color 3"},
