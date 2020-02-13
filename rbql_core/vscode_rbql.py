@@ -27,7 +27,7 @@ def main():
     parser.add_argument('encoding', help='encoding')
     args = parser.parse_args()
 
-    delim = rbql.rbql_csv.normalize_delim(args.delim)
+    delim = args.delim
     policy = args.policy
     output_delim = args.output_delim
     output_policy = args.output_policy
