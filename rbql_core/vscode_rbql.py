@@ -12,7 +12,7 @@ import argparse
 import json
 import base64
 
-import rbql.rbql_csv
+import rbql
 
 
 def main():
@@ -36,15 +36,13 @@ def main():
     csv_encoding = args.encoding
     output_path = args.output_table_path
     
-    error_info, warnings = rbql.rbql_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding)
-    if error_info is not None:
-        error_type = error_info['type']
-        error_msg = error_info['message']
-        sys.stdout.write(json.dumps({'error_type': error_type, 'error_msg': error_msg}))
-    else:
-        if warnings is None:
-            warnings = []
+    try:
+        warnings = []
+        rbql.query_csv(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, warnings)
         sys.stdout.write(json.dumps({'warnings': warnings}))
+    except Exception as e:
+        error_type, error_msg = rbql.exception_to_error_info(e)
+        sys.stdout.write(json.dumps({'error_type': error_type, 'error_msg': error_msg}))
 
 
 

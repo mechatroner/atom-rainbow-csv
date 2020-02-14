@@ -641,7 +641,8 @@ function exception_to_error_info(e) {
 function run_rbql_native(input_path, query, delim, policy, output_path, output_delim, output_policy, csv_encoding, report_handler) {
     if (rbql_csv === null)
         rbql_csv = require('./rbql_core/rbql-js/rbql_csv.js');
-    rbql_csv.csv_run(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, '', {'bulk_read': true}).then(warnings => {
+    let warnings = [];
+    rbql_csv.query_csv(query, input_path, delim, policy, output_path, output_delim, output_policy, csv_encoding, warnings, false, '', {'bulk_read': true}).then(() => {
         report_handler({'result_path': output_path, 'warnings': warnings});
     }).catch(e => {
         let [error_type, error_msg] = exception_to_error_info(e);
