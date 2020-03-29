@@ -35,7 +35,7 @@ When manually enabling rainbow highlighting from the context menu, you have to c
 
 # RBQL (Rainbow Query Language) Description
 
-RBQL is a technology which provides SQL-like language that supports _SELECT_ and _UPDATE_ queries with Python or JavaScript expressions.  
+RBQL is a technology for (not only) CSV files processing. It provides SQL-like language that supports SELECT queries with Python or JavaScript expressions.  
 RBQL is distributed with CLI apps, text editor plugins, Python and JS libraries and can work in web browsers.  
 RBQL core module is very generic and can process all kind of objects and record formats, but most popular RBQL implementation works with CSV files.  
 
@@ -90,10 +90,10 @@ RBQL for CSV files provides the following variables which you can use in your qu
 * _NF_  
    Variable type: **integer**  
    Description: Number of fields in the current record  
-* _a.name_, _b.Person_age_, ... _a.{good_alphanumeric_column_name}_  
+* _a.name_, _b.Person_age_, ... _a.{Good_alphanumeric_column_name}_  
    Variable type: **string**  
    Description: Value of the field referenced by it's "name". You can use this notation if the field in the first (header) CSV line has a "good" alphanumeric name  
-* _a["object id"]_, _a['9.12341234']_, _b["%$ !! 10 20"]_ ... _a["arbitrary column name!"]_  
+* _a["object id"]_, _a['9.12341234']_, _b["%$ !! 10 20"]_ ... _a["Arbitrary column name!"]_  
    Variable type: **string**  
    Description: Value of the field referenced by it's "name". You can use this notation to reference fields by arbitrary values in the first (header) CSV line, even when there is no header at all  
 
@@ -126,7 +126,7 @@ There is a workaround for the limitation above for _ARRAY_AGG_ function which su
 
 Join table B can be referenced either by it's file path or by it's name - an arbitary string which user should provide before executing the JOIN query.  
 RBQL supports _STRICT LEFT JOIN_ which is like _LEFT JOIN_, but generates an error if any key in left table "A" doesn't have exactly one matching key in the right table "B".  
-Limitation: _JOIN_ statements must have the following form: _<JOIN\_KEYWORD> (/path/to/table.tsv | table_name ) ON ai == bj_  
+Limitation: _JOIN_ statements can't contain Python/JS expressions and must have the following form: _<JOIN\_KEYWORD> (/path/to/table.tsv | table_name ) ON a... == b... [AND a... == b... [AND ... ]]_
 
 
 ### SELECT EXCEPT statement
@@ -138,6 +138,11 @@ Traditional SQL engines do not support this query mode.
 ### UNNEST() operator
 UNNEST(list) takes a list/array as an argument and repeats the output record multiple times - one time for each value from the list argument.  
 Example: `SELECT a1, UNNEST(a2.split(';'))`  
+
+
+### LIKE() function
+RBQL does not support LIKE operator, instead it provides "like()" function which can be used like this:
+`SELECT * where like(a1, 'foo%bar')`
 
 
 ### User Defined Functions (UDF)
@@ -190,4 +195,5 @@ And if you are doing math operation you can modify your query like this, example
 * rainbow_csv plugin in [gedit](https://github.com/mechatroner/gtk_gedit_rainbow_csv) - doesn't support quoted commas in csv
 * rainbow_csv_4_nedit in [NEdit](https://github.com/DmitTrix/rainbow_csv_4_nedit)
 * CSV highlighting in [Nano](https://github.com/scopatz/nanorc)
+* Rainbow CSV in [IntelliJ IDEA](https://plugins.jetbrains.com/plugin/12896-rainbow-csv/)
 * RBQL [Official Site](https://rbql.org/) 
